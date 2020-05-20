@@ -43,4 +43,4 @@ Bryan Shin
 
 SHOUT OUT TO TIM!!!
 
-We'd also like to thank all developers of crappy online Resistence games, who inspired us to make something better.
+We'd also like to thank all developers of crappy online Resistence games, who inspired us to make something better.     
