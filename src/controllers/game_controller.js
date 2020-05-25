@@ -14,6 +14,6 @@ export const joinGame = (fields) => {
       return foundGame.save();
     })
     .catch((error) => {
-      return { error };
+      throw error;
     });
 };

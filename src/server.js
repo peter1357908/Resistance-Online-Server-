@@ -78,9 +78,11 @@ io.on('connection', (socket) => {
 
   socket.on('joinGame', (fields) => {
     Game.joinGame(fields).then((gameInfo) => {
+      socket.emit('joinSucceeded');
       io.sockets.emit(fields.sessionID, gameInfo);
     }).catch((error) => {
       console.log(error);
+      socket.emit('joinFailed');
     });
   });
 });
