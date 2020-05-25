@@ -6,10 +6,8 @@ import morgan from 'morgan';
 import socketio from 'socket.io';
 import http from 'http';
 import mongoose from 'mongoose';
-import throttle from 'lodash.throttle';
-import debounce from 'lodash.debounce';
 
-import * as Notes from './controllers/note_controller';
+import * as Game from './controllers/game_controller';
 
 // DB Setup
 const config = {
@@ -62,62 +60,27 @@ console.log(`listening on: ${port}`);
 io.on('connection', (socket) => {
   // ==============================================================
   // upon first connection, do...
-  Notes.getNotes().then((result) => {
-    socket.emit('notes', result);
-  });
 
   // ==============================================================
   // helper functions
-  const pushNotes = () => {
-    Notes.getNotes().then((result) => {
-      // broadcasts to all sockets including ourselves
-      io.sockets.emit('notes', result);
-    });
-  };
-
-  // group all the self-emissions in a certain interval
-  let emitToSelf = (notes) => {
-    socket.emit('notes', notes);
-  };
-  emitToSelf = debounce(emitToSelf, 200);
-
-  // emit to others at most at every certain interval
-  let emitToOthers = (notes) => {
-    socket.broadcast.emit('notes', notes);
-  };
-  emitToOthers = throttle(emitToOthers, 25);
-
-  const pushNotesSmoothed = () => {
-    Notes.getNotes().then((result) => {
-      emitToSelf(result);
-      emitToOthers(result);
-    });
-  };
 
   // ==============================================================
   // socket events
-  socket.on('createNote', (fields) => {
-    Notes.createNote(fields).then((result) => {
-      pushNotes();
+
+  socket.on('createGame', (fields) => {
+    Game.createGame(fields).then((gameInfo) => {
+      io.sockets.emit(fields.sessionID, gameInfo);
     }).catch((error) => {
       console.log(error);
       socket.emit('error', 'create failed');
     });
   });
 
-  socket.on('updateNote', (id, fields) => {
-    Notes.updateNote(id, fields).then(() => {
-      if (fields.text) {
-        pushNotes();
-      } else {
-        pushNotesSmoothed();
-      }
-    });
-  });
-
-  socket.on('deleteNote', (id) => {
-    Notes.deleteNote(id).then(() => {
-      pushNotes();
+  socket.on('joinGame', (fields) => {
+    Game.joinGame(fields).then((gameInfo) => {
+      io.sockets.emit(fields.sessionID, gameInfo);
+    }).catch((error) => {
+      console.log(error);
     });
   });
 });
