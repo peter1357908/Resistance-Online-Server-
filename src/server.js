@@ -87,6 +87,7 @@ io.on('connection', (socket) => {
     }).catch((error) => {
       console.log(error);
       io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
+
     });
   });
 
