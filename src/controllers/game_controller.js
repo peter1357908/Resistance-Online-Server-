@@ -1,17 +1,71 @@
 import Game from '../models/game_model';
+import Player from '../models/player_model';
 
-export const createGame = (fields) => {
-  const game = new Game(fields);
-  game.numPlayers = 1;
-  return game.save();
+// fields will have: playerID, sessionID, sessionPassword
+// TODO: what if creation fails in any way
+export const createGame = (fields, socketID) => {
+  const player = new Player();
+  player.playerID = fields.playerID;
+  player.sessionID = fields.sessionID;
+  player.socketID = socketID;
+  return player.save()
+    .then((savedPlayer) => {
+      const game = new Game();
+      game.sessionID = fields.sessionID;
+      game.password = fields.password;
+      game.creator = savedPlayer._id;
+      game.players = [];
+      game.players.push(savedPlayer._id);
+      return game.save()
+        .then((savedGame) => {
+          const playerIDs = [];
+          playerIDs.push(fields.playerID);
+          return {
+            currentLeader: -1,
+            playerIDs,
+          };
+        })
+        .catch((error) => {
+          throw error;
+        });
+    })
+    .catch((error) => {
+      throw error;
+    });
 };
 
-export const joinGame = (fields) => {
-  return Game.findOne({ sessionID: fields.sessionID })
-    .then((foundGame) => {
-      foundGame.playerIDs.push(fields.playerID);
-      foundGame.numPlayers += 1;
-      return foundGame.save();
+// TODO: what if join fails in any way
+export const joinGame = (fields, socketID) => {
+  const player = new Player();
+  player.playerID = fields.playerID;
+  player.sessionID = fields.sessionID;
+  player.socketID = socketID;
+  return player.save()
+    .then((savedPlayer) => {
+      return Game.findOne({ sessionID: fields.sessionID })
+        .then((foundGame) => {
+          // TODO: what if no game found?
+          foundGame.players.push(savedPlayer._id);
+          return foundGame.save()
+            .then((savedGame) => {
+              return savedGame.populate('players', 'playerID')
+                .then((populatedGame) => {
+                  return {
+                    currentLeader: -1,
+                    playerIDs: populatedGame.players,
+                  };
+                })
+                .catch((error) => {
+                  throw error;
+                });
+            })
+            .catch((error) => {
+              throw error;
+            });
+        })
+        .catch((error) => {
+          throw error;
+        });
     })
     .catch((error) => {
       throw error;

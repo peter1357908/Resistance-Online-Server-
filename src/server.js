@@ -68,21 +68,30 @@ io.on('connection', (socket) => {
   // socket events
 
   socket.on('createGame', (fields) => {
-    Game.createGame(fields).then((gameInfo) => {
-      io.sockets.emit(fields.sessionID, gameInfo);
+    Game.createGame(fields, socket.id).then((result) => {
+      socket.join(fields.sessionID);
+      io.to(socket.id).emit('createGame', { playerID: fields.playerID });
+      io.to(fields.sessionID).emit('lobby', result); // equivalent to io.to(socket.id) HERE
     }).catch((error) => {
+      // TODO: the emission is for fail, NOT error... but for now...
       console.log(error);
-      socket.emit('error', 'create failed');
+      io.to(socket.id).emit('createGame', { playerID: null, failMessage: error });
     });
   });
 
   socket.on('joinGame', (fields) => {
-    Game.joinGame(fields).then((gameInfo) => {
-      socket.emit('joinSucceeded');
-      io.sockets.emit(fields.sessionID, gameInfo);
+    Game.joinGame(fields, socket.id).then((result) => {
+      socket.join(fields.sessionID);
+      io.to(socket.id).emit('joinGame', { playerID: fields.playerID });
+      io.to(fields.sessionID).emit('lobby', result);
     }).catch((error) => {
       console.log(error);
-      socket.emit('joinFailed');
+      io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
+
     });
   });
+
+  // socket.on('lobby')...
+
+  // socket.on('inGame')...
 });
