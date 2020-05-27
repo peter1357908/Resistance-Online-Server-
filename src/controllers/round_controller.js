@@ -5,15 +5,19 @@ export const startRound = (fields) => {
   return round.save();
 };
 
-export const voteRound = (vote) => {
-  switch (vote) {
-    case 'REJECT':
-      Round.rejectedVotes += 1;
-      break;
-    case 'APPROVE':
-      Round.approvedVotes += 1;
-      break;
-    default:
-      console.log('error: ', vote);
-  }
+export const voteRound = (fields) => {
+  Round.findOne({ sessionID: fields.sessionID }).then((round) => {
+    switch (fields.vote) {
+      case 'REJECT':
+        round.rejectedVotes += 1;
+        break;
+      case 'APPROVE':
+        round.approvedVotes += 1;
+        break;
+      default:
+        console.log('error: ', fields.vote);
+    }
+  }).catch((error) => {
+    console.log('error: ', error);
+  });
 };

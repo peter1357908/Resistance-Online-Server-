@@ -2,7 +2,8 @@ import mongoose, { Schema } from 'mongoose';
 
 const RoundSchema = new Schema({
   currentLeader: { type: Schema.Types.ObjectId, ref: 'Player' },
-  proposedTeam: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  // proposedTeam: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  proposedTeam: [{ type: Number, default: 0 }],
   teamSize: { type: Number, default: 0 },
   totalVotes: { type: Number, default: 0 },
   approvedVotes: { type: Number, default: 0 },

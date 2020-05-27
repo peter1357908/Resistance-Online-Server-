@@ -2,6 +2,8 @@ import mongoose, { Schema } from 'mongoose';
 
 const PlayerSchema = new Schema({
   playerID: String,
+  socketID: String,
+  sessionID: String,
 }, {
   toObject: { virtuals: true }, // why?
   toJSON: { virtuals: true }, // why?
