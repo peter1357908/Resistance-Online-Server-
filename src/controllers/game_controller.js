@@ -48,11 +48,14 @@ export const joinGame = (fields, socketID) => {
           foundGame.players.push(savedPlayer._id);
           return foundGame.save()
             .then((savedGame) => {
-              return savedGame.populate('players', 'playerID')
+              // TODO: very convoluted workaround on populate; find a better way!
+              return savedGame.populate('players').execPopulate()
                 .then((populatedGame) => {
                   return {
                     currentLeader: -1,
-                    playerIDs: populatedGame.players,
+                    playerIDs: populatedGame.players.map((playerObject) => {
+                      return playerObject.playerID;
+                    }),
                   };
                 })
                 .catch((error) => {
