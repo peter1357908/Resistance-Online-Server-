@@ -4,6 +4,7 @@ const PlayerSchema = new Schema({
   playerID: String,
   socketID: String,
   sessionID: String,
+  team: String, // Either 'RESISTANCE' or 'SPY'
 }, {
   toObject: { virtuals: true }, // why?
   toJSON: { virtuals: true }, // why?

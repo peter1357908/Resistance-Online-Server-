@@ -7,7 +7,7 @@ import socketio from 'socket.io';
 import http from 'http';
 import mongoose from 'mongoose';
 
-import * as Game from './controllers/game_controller';
+import * as Game from './controllers/pregame_controller';
 
 // DB Setup
 const config = {
@@ -70,7 +70,7 @@ io.on('connection', (socket) => {
   socket.on('createGame', (fields) => {
     Game.createGame(fields, socket.id).then((result) => {
       socket.join(fields.sessionID);
-      io.to(socket.id).emit('createGame', { playerID: fields.playerID });
+      io.to(socket.id).emit('createGame', { playerID: fields.playerID, creatorID: result.creatorID });
       io.to(fields.sessionID).emit('lobby', result); // equivalent to io.to(socket.id) HERE
     }).catch((error) => {
       // TODO: the emission is for fail, NOT error... but for now...
@@ -82,12 +82,36 @@ io.on('connection', (socket) => {
   socket.on('joinGame', (fields) => {
     Game.joinGame(fields, socket.id).then((result) => {
       socket.join(fields.sessionID);
-      io.to(socket.id).emit('joinGame', { playerID: fields.playerID });
+      io.to(socket.id).emit('joinGame', { playerID: fields.playerID, playerIDs: result.playerIDs, creatorID: result.creatorID });
       io.to(fields.sessionID).emit('lobby', result);
     }).catch((error) => {
       console.log(error);
       io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
     });
+  });
+
+  socket.on('lobby', (fields) => {
+    const action = fields.action;
+    switch(fields.action){
+      case 'quitGame':
+        Game.quitGame(socket.id).then((result) => {
+          io.to(socket.id).emit('joinGame', { action: 'quitGame' });
+          socket.leave(result.sessionID);
+          io.to(fields.sessionID).emit('lobby', result);
+        });
+        break;
+      case 'startGame':
+        Game.startGame(socket.id).then((result) => {});
+        const message = {
+          action: 'gameStarted',
+          currentLeaderID: String
+          // playerIDs: \[String\]
+        }
+        io.to(result.sessionID).emit('lobby', message);
+        break;
+      default:
+      console.log(error)
+    }
   });
 
   // socket.on('lobby')...
