@@ -1,13 +1,16 @@
 import mongoose, { Schema } from 'mongoose';
 
 const MissionSchema = new Schema({
-  missionTeam: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  missionTeam: [String], // an array of playerIDs
   currentRound: { type: Schema.Types.ObjectId, ref: 'Round' },
   rounds: [{ type: Schema.Types.ObjectId, ref: 'Round' }],
-  totalVotes: { type: Number, default: 0 },
-  successVotes: { type: Number, default: 0 },
-  failVotes: { type: Number, default: 0 },
-  missionOutcome: { type: String, default: 'None' },
+  missionSize: Number,
+  // TODO: keep track of who voted what for who goes on the mission
+  votes: [{
+    playerID: String,
+    voteType: String, // 'SUCCEED' or 'FAIL'
+  }],
+  missionOutcome: String, // 'SUCCESS' or 'FAIL'
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

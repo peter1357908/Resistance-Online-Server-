@@ -1,14 +1,14 @@
 import mongoose, { Schema } from 'mongoose';
 
 const RoundSchema = new Schema({
-  currentLeader: { type: Schema.Types.ObjectId, ref: 'Player' },
-  // proposedTeam: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  proposedTeam: [{ type: Number, default: 0 }],
-  teamSize: { type: Number, default: 0 },
-  totalVotes: { type: Number, default: 0 },
-  approvedVotes: { type: Number, default: 0 },
-  rejectedVotes: { type: Number, default: 0 },
-  proposalOutcome: { type: String, default: 'None' },
+  currentLeaderID: String,
+  proposedTeam: [String], // an array of playerIDs
+  // TODO: keep track of who voted what for who goes on the mission
+  votes: [{
+    playerID: String,
+    voteType: String, // 'APPROVE' or 'REJECT'
+  }],
+  proposalOutcome: String, // `APPROVED`, `REJECTED`
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

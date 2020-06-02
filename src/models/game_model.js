@@ -3,10 +3,11 @@ import mongoose, { Schema } from 'mongoose';
 const GameSchema = new Schema({
   sessionID: String,
   password: String,
-  creator: { type: Schema.Types.ObjectId, ref: 'Player' },
-  players: [{ type: Schema.Types.ObjectId, ref: 'Player' }], // controllers boutta get fricked
-  spies: [Number],
-  resistance: [Number],
+  creatorID: String,
+  players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  // the following are currently kept track of in the player model
+  // spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  // resistance: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
 }, {
   toObject: { virtuals: true }, // why?
