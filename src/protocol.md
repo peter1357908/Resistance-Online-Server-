@@ -17,14 +17,15 @@ On `createGame`, server will create a room with the same name as the `sessionID`
 Server sends to the client on the event `createGame`:
 {
     playerID: String // `null` if creation failed
-    failMessage: String // `null` if creation succeeded
+    \[failMessage: String\]
 }
 
 // upon successfully creating a game
 
 // server broadcasts to the room on the event `lobby`:
-// note that currently only the creator is in the lobby and the `playerIDs` should only contain the creator's `playerID`
 {
+    action: 'someoneJoined'
+    creatorID: String
     playerIDs: \[String\]
 }
 
@@ -49,7 +50,7 @@ Otherwise, server will join the client into the room specified by `sessionID` in
 Server sends to the client on the event `joinGame`:
 {
     playerID: String // `null` if join failed
-    failMessage: String // `null` if nothing failed
+    \[failMessage: String\]
 }
 
 // upon successfully joining a game
@@ -57,7 +58,8 @@ Server sends to the client on the event `joinGame`:
 // TODO: emit to other clients only the newly joined player?
 server broadcasts to the room on the event `lobby`:
 {
-    currentLeader: -1 // to specify that the game is not starting yet
+    action: 'someoneJoined'
+    creatorID: String
     playerIDs: \[String\]
 }
 
@@ -67,12 +69,21 @@ Client sends to the server on the event `lobby`:
     action: 'startGame',
 }
 
-The server checks if the client sending the message is the creator of the game (get the client's play model by their `socket.id`) whose sessionID is specified in the player data stored on the server, as well as if the game can be started (e.g. enough players). Depends on whether it was successfully started, the server broadcasts as follows (to the room on the event `lobby`):
+The server checks if the client sending the message is the creator of the game (get the client's play model by their `socket.id`) whose sessionID is specified in the player data stored on the server, as well as if the game can be started (e.g. right number of players).
 
-// TODO: send the fail message only to the client who tried to start
+If number of players is not right, server sends to the `socket.id`:
+{
+    action: 'fail',
+    failMessage: 'do not start a game until right number of players are in the lobby'
+}
+
 Server broadcasts to the room on the event `lobby`:
 {
     action: 'gameStarted'
+}
+
+Server broadcasts to the room on the event `inGame`:
+{
     currentLeaderID: String
     playerIDs: \[String\]
     // TODO: send more game information to allow "resuming a game" / "join an existing game"
@@ -87,25 +98,25 @@ Once the clients receive this message, they start listening on `inGame`.
 }
 // (client does not expect anything from the server)
 
-The server will first remove the player's data structure (find it with `socket.id`; there should be a player model associated with it already).
-
 * If: the quitter is the only player in the lobby, the game data structure should be removed from the back-end.
 * Else:
     * If: the quitter is the game's creator, another player takes over the creator status (TODO: rename it to "lobby master"?).
     * The player's reference is removed from the game's data strucutre.
+
+Finally, the server will remove the player's data structure (find it with `socket.id`; there should be a player model associated with it already).
 
 Server sends to the `socket.id` on the event `lobby`:
 {
     action: 'quitAcknowledged'
 }
 
-Server then removes `socket.id` from the room `sessionID`. If the last player quitted from the room, the room should be destroyed.
+Server then removes `socket.id` from the room `sessionID`. If the last player quit from the room, the room should be destroyed.
 
 Server then broadcasts to the room `sessionID` on the event `lobby`:
 {
-    action: 'someoneQuitted'
-    quitter: String
-    newCreator: String
+    action: 'someoneQuit'
+    playerIDs: \[String\]
+    creatorID: String
 }
 
 // ___________TEAM PROPOSAL___________
