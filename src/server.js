@@ -7,12 +7,13 @@ import socketio from 'socket.io';
 import http from 'http';
 import mongoose from 'mongoose';
 
-import * as Game from './controllers/pregame_controller';
+import * as Pregame from './controllers/pregame_controller';
 
 // DB Setup
 const config = {
   useNewUrlParser: true, // (node:24427) DeprecationWarning
   useUnifiedTopology: true, // (node:24427) DeprecationWarning
+  useFindAndModify: false, // (node:66361) DeprecationWarning
 };
 const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost/COSC52OnlineMultiplayerGame';
 mongoose.connect(mongoURI, config);
@@ -68,10 +69,14 @@ io.on('connection', (socket) => {
   // socket events
 
   socket.on('createGame', (fields) => {
-    Game.createGame(fields, socket.id).then((result) => {
+    Pregame.createGame(fields, socket.id).then((result) => {
       socket.join(fields.sessionID);
-      io.to(socket.id).emit('createGame', { playerID: fields.playerID, creatorID: result.creatorID });
-      io.to(fields.sessionID).emit('lobby', result); // equivalent to io.to(socket.id) HERE
+      io.to(socket.id).emit('createGame', { playerID: result.playerID });
+      io.to(fields.sessionID).emit('lobby', {
+        action: 'someoneJoined',
+        creatorID: result.creatorID,
+        playerIDs: result.playerIDs,
+      }); // equivalent to io.to(socket.id) HERE
     }).catch((error) => {
       // TODO: the emission is for fail, NOT error... but for now...
       console.log(error);
@@ -79,11 +84,23 @@ io.on('connection', (socket) => {
     });
   });
 
+  // TODO: handle errors
   socket.on('joinGame', (fields) => {
-    Game.joinGame(fields, socket.id).then((result) => {
-      socket.join(fields.sessionID);
-      io.to(socket.id).emit('joinGame', { playerID: fields.playerID, playerIDs: result.playerIDs, creatorID: result.creatorID });
-      io.to(fields.sessionID).emit('lobby', result);
+    Pregame.joinGame(fields, socket.id).then((result) => {
+      if (result.playerID === null) {
+        io.to(socket.id).emit('joinGame', {
+          playerID: null,
+          failMessage: 'playerID already taken in the target session',
+        });
+      } else {
+        socket.join(fields.sessionID);
+        io.to(socket.id).emit('joinGame', { playerID: result.playerID });
+        io.to(fields.sessionID).emit('lobby', {
+          action: 'someoneJoined',
+          creatorID: result.creatorID,
+          playerIDs: result.playerIDs,
+        });
+      }
     }).catch((error) => {
       console.log(error);
       io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
@@ -91,30 +108,42 @@ io.on('connection', (socket) => {
   });
 
   socket.on('lobby', (fields) => {
-    const action = fields.action;
-    switch(fields.action){
-      case 'quitGame':
-        Game.quitGame(socket.id).then((result) => {
-          io.to(socket.id).emit('joinGame', { action: 'quitGame' });
+    switch (fields.action) {
+      case 'quitLobby':
+        Pregame.quitLobby(socket.id).then((result) => {
+          io.to(socket.id).emit('lobby', { action: 'quitAcknowledged' });
           socket.leave(result.sessionID);
-          io.to(fields.sessionID).emit('lobby', result);
+          io.to(fields.sessionID).emit('lobby', {
+            action: 'someoneQuit',
+            playerIDs: result.playerIDs,
+            creatorID: result.creatorID,
+          });
         });
         break;
       case 'startGame':
-        Game.startGame(socket.id).then((result) => {});
-        const message = {
-          action: 'gameStarted',
-          currentLeaderID: String
-          // playerIDs: \[String\]
-        }
-        io.to(result.sessionID).emit('lobby', message);
+        Pregame.startGame(socket.id).then((result) => {
+          if (result.playerIDs === null) {
+            io.to(socket.id).emit('lobby', {
+              action: 'fail',
+              failMessage: 'do not start a game until right number of players are in the lobby',
+            });
+          } else {
+            io.to(result.sessionID).emit('lobby', {
+              action: 'gameStarted',
+            });
+            io.to(result.sessionID).emit('inGame', {
+              currentLeaderID: result.currentLeaderID,
+              playerIDs: result.playerIDs,
+            });
+          }
+        });
         break;
       default:
-      console.log(error)
+        console.log(`unknown action: ${fields.action}`);
+        break;
     }
   });
 
-  // socket.on('lobby')...
-
   // socket.on('inGame')...
+  // socket.on('postGame')...
 });
