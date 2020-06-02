@@ -70,16 +70,21 @@ io.on('connection', (socket) => {
 
   socket.on('createGame', (fields) => {
     Pregame.createGame(fields, socket.id).then((result) => {
-      socket.join(fields.sessionID);
-      io.to(socket.id).emit('createGame', { playerID: result.playerID });
-      io.to(fields.sessionID).emit('lobby', {
-        action: 'someoneJoined',
-        creatorID: result.creatorID,
-        playerIDs: result.playerIDs,
-      }); // equivalent to io.to(socket.id) HERE
+      if (result.playerID === null) {
+        io.to(socket.id).emit('createGame', {
+          playerID: null,
+          failMessage: result.failMessage,
+        });
+      } else {
+        socket.join(fields.sessionID);
+        io.to(socket.id).emit('createGame', { playerID: result.playerID });
+        io.to(fields.sessionID).emit('lobby', {
+          action: 'someoneJoined',
+          creatorID: result.creatorID,
+          playerIDs: result.playerIDs,
+        }); // equivalent to io.to(socket.id) HERE
+      }
     }).catch((error) => {
-      // TODO: the emission is for fail, NOT error... but for now...
-      console.log(error);
       io.to(socket.id).emit('createGame', { playerID: null, failMessage: error });
     });
   });
@@ -90,7 +95,7 @@ io.on('connection', (socket) => {
       if (result.playerID === null) {
         io.to(socket.id).emit('joinGame', {
           playerID: null,
-          failMessage: 'playerID already taken in the target session',
+          failMessage: result.failMessage,
         });
       } else {
         socket.join(fields.sessionID);
@@ -102,7 +107,6 @@ io.on('connection', (socket) => {
         });
       }
     }).catch((error) => {
-      console.log(error);
       io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
     });
   });
@@ -113,29 +117,36 @@ io.on('connection', (socket) => {
         Pregame.quitLobby(socket.id).then((result) => {
           io.to(socket.id).emit('lobby', { action: 'quitAcknowledged' });
           socket.leave(result.sessionID);
-          io.to(fields.sessionID).emit('lobby', {
-            action: 'someoneQuit',
-            playerIDs: result.playerIDs,
-            creatorID: result.creatorID,
-          });
+          // only emit to the other players if there are any left
+          if (result.playerIDs !== null) {
+            io.to(result.sessionID).emit('lobby', {
+              action: 'someoneQuit',
+              playerIDs: result.playerIDs,
+              creatorID: result.creatorID,
+            });
+          }
+        }).catch((error) => {
+          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
         });
         break;
       case 'startGame':
         Pregame.startGame(socket.id).then((result) => {
-          if (result.playerIDs === null) {
+          if (result.action === 'fail') {
             io.to(socket.id).emit('lobby', {
               action: 'fail',
-              failMessage: 'do not start a game until right number of players are in the lobby',
+              failMessage: result.failMessage,
             });
           } else {
             io.to(result.sessionID).emit('lobby', {
-              action: 'gameStarted',
+              action: result.action,
             });
             io.to(result.sessionID).emit('inGame', {
               currentLeaderID: result.currentLeaderID,
               playerIDs: result.playerIDs,
             });
           }
+        }).catch((error) => {
+          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
         });
         break;
       default:
