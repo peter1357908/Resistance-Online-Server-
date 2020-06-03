@@ -8,7 +8,7 @@ export const heardFrom = (socketID) => {
   return Player.findOne({ socketID:socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
       foundGame.waitingFor.pull(foundPlayer._id);
-      return foundGame.save().then((savedGame) => {
+      return foundGame.save().then(async (savedGame) => {
         if (savedGame.waitingFor.length !== 0){
           return savedGame.populate('waitingFor').execPopulate().then((populatedGame) => {
             const playerIDs = populatedGame.waitingFor.map((playerObject) => {
@@ -21,15 +21,15 @@ export const heardFrom = (socketID) => {
             }
           }).catch((error) => { throw error; });
         } else {
-          newMission(savedGame.sessionID);
-        //   console.log('fields returned from first mission');
+          const fields = await newMission(savedGame.sessionID);
+          console.log('fields returned from first mission', fields);
           return {
             message: "everyoneJoined",
             waitingFor: [],
             sessionID: savedGame.sessionID,
-            currentLeaderIndex: 0,
-            currentMission: 0,
-            currentRound: 0,
+            currentLeaderIndex: fields.currentLeaderIndex,
+            currentMission: fields.currentMissionIndex,
+            currentRound: fields.currentRoundIndex,
           }
         }
       }).catch((error) => { throw error; });
@@ -88,7 +88,7 @@ export const newMission = (sessionID) => {
         return mission.save().then((newMission) => {
           populatedGame.missions.push(newMission._id);
           populatedGame.currentMissionIndex = foundGame.missions.length - 1;
-          populatedGame.save().then((savedGame) => {
+          return populatedGame.save().then((savedGame) => {
             return {
               sessionID: savedGame.sessionID,
               currentLeaderID: newRound.currentLeaderID,
@@ -96,10 +96,50 @@ export const newMission = (sessionID) => {
               currentMissionIndex: savedGame.currentMissionIndex,
               currentRoundIndex: 0,
               // missionID: newMission._id,
-            };;
+            };
           }).catch((error) => { throw error; });
         }).catch((error) => { throw error; });
       }).catch((error) => { throw error; });
     }).catch((error) => { throw error; })
   }).catch((error) => { throw error; });
 };
+
+
+// export const newMission2 = (sessionID) => {
+//   return Game.findOne({ sessionID: sessionID }).then((foundGame) => {
+//     return foundGame.populate('players').execPopulate().then((populatedGame) => {
+//       const round = new Round();
+//       const leaderObject = populatedGame.players[populatedGame.currentLeaderIndex]; // could be tricky later
+//       console.log('leaderObject: ', leaderObject);
+//       round.currentLeaderID = leaderObject.playerID;
+//       console.log('round currentLEaderID', round.currentLeaderID);
+//       // return {
+//       //   random: 'test',
+//       //   newrandom: 'test2'
+//       // }
+
+//       return round.save().then((newRound) => {
+//         const mission = new Mission();
+//         [mission.missionSize] = MissionSizes[populatedGame.players.length];
+//         console.log('mission size', mission.missionSize);
+//         // mission.missionSize = MissionSizes[foundGame.players.length][0];
+//         mission.currentRound = 0;
+//         mission.rounds = [newRound._id];
+//         return mission.save().then((newMission) => {
+//           populatedGame.missions.push(newMission._id);
+//           populatedGame.currentMissionIndex = foundGame.missions.length - 1;
+//           return populatedGame.save().then((savedGame) => {
+//             return {
+//               sessionID: savedGame.sessionID,
+//               currentLeaderID: newRound.currentLeaderID,
+//               currentLeaderIndex: savedGame.currentLeaderIndex,
+//               currentMissionIndex: savedGame.currentMissionIndex,
+//               currentRoundIndex: 0,
+//               // missionID: newMission._id,
+//             };
+//           }).catch((error) => { throw error; });
+//         }).catch((error) => { throw error; });
+//       }).catch((error) => { throw error; });
+//     }).catch((error) => { throw error; })
+//   }).catch((error) => { throw error; });
+// };
