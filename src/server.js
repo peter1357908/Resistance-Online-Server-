@@ -185,6 +185,7 @@ io.on('connection', (socket) => {
               currentLeaderIndex: result.currentLeaderIndex,
               currentMission: result.currentMission,
               currentRound: result.currentRound,
+              missionSize: result.missionSize,
             });
           } else {
             io.to(result.sessionID).emit('inGame', {

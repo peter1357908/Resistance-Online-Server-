@@ -30,6 +30,7 @@ export const heardFrom = (socketID) => {
             currentLeaderIndex: fields.currentLeaderIndex,
             currentMission: fields.currentMissionIndex,
             currentRound: fields.currentRoundIndex,
+            missionSize: fields.missionSize,
           }
         }
       }).catch((error) => { throw error; });
@@ -94,6 +95,7 @@ export const newMission = (sessionID) => {
               currentLeaderIndex: savedGame.currentLeaderIndex,
               currentMissionIndex: savedGame.currentMissionIndex,
               currentRoundIndex: 0,
+              missionSize: savedNewMission.missionSize,
               // missionID: newMission._id,
             };
           }).catch((error) => { throw error; });
