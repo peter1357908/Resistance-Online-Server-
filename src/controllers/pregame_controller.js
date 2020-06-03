@@ -150,25 +150,29 @@ export const startGame = (socketID) => {
 
       foundGame.inLobby = false;
 
+      foundGame.waitingFor = foundGame.players.slice(0);
       return foundGame.save().then((savedGame) => {
         return savedGame.populate('players').execPopulate().then((populatedGame) => {
           return populatedGame.populate('spies').execPopulate().then((populatedSavedGame) => {
-            const playerIDs = populatedSavedGame.players.map((playerObject) => {
-              return playerObject.playerID;
-            });
-            const spyIDs = populatedSavedGame.spies.map((playerObject) => {
-              return playerObject.playerID;
-            });
-            const spySockets = populatedSavedGame.spies.map((playerObject) => {
-              return playerObject.socketID;
-            });
-            return {
-              action: 'gameStarted',
-              sessionID: foundGame.sessionID,
-              spies: spyIDs,
-              spySockets,
-              playerIDs,
-            };
+            return populatedSavedGame.populate('waitingFor').execPopulate().then((populatedWaitingGame) => {
+              const playerIDs = populatedWaitingGame.waitingFor.map((playerObject) => {
+                return playerObject.playerID;
+              });
+              const spyIDs = populatedWaitingGame.spies.map((playerObject) => {
+                return playerObject.playerID;
+              });
+              const spySockets = populatedWaitingGame.spies.map((playerObject) => {
+                return playerObject.socketID;
+              });
+              
+              return {
+                action: 'gameStarted',
+                sessionID: populatedWaitingGame.sessionID,
+                spies: spyIDs,
+                spySockets,
+                playerIDs,
+              };
+            }).catch((error) => { throw error; });
           }).catch((error) => { throw error; });
         }).catch((error) => { throw error; });
       }).catch((error) => { throw error; });
@@ -217,3 +221,4 @@ export const quitLobby = (socketID) => {
     }).catch((error) => { throw error; });
   }).catch((error) => { throw error; });
 };
+

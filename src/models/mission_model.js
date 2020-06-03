@@ -2,7 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 
 const MissionSchema = new Schema({
   missionTeam: [String], // an array of playerIDs
-  currentRound: { type: Schema.Types.ObjectId, ref: 'Round' },
+  currentRound: { type: Number, default: 0 },
   rounds: [{ type: Schema.Types.ObjectId, ref: 'Round' }],
   missionSize: Number,
   // TODO: keep track of who voted what for who goes on the mission

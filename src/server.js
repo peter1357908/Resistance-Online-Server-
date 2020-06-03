@@ -8,6 +8,7 @@ import http from 'http';
 import mongoose from 'mongoose';
 
 import * as Pregame from './controllers/pregame_controller';
+import * as Ingame from './controllers/game_controller';
 
 // DB Setup
 const config = {
@@ -147,7 +148,7 @@ io.on('connection', (socket) => {
             
             for (let spyIndex in result.spySockets){
               io.to(result.spySockets[spyIndex]).emit('inGame', {
-                action: 'setspy',
+                action: 'setSpy',
                 spies: result.spies,
               });
             }
@@ -158,10 +159,39 @@ io.on('connection', (socket) => {
         break;
       default:
         console.log(`unknown action: ${fields.action}`);
-        break;
+      break;
     }
   });
 
-  // socket.on('inGame')...
+  socket.on('inGame', (fields) => {
+    console.log('inGame fields: ', fields);
+    switch (fields.action) {
+      case 'factionViewed':
+        Ingame.heardFrom(socket.id).then((result) => {
+          console.log('heardFrom result: ', result);
+          // io.to(result.sessionID).emit('inGame', {
+          //   action: 'waitingFor',
+          //   waitingFor: result.waitingFor,
+          // });
+          if (result.message === 'everyoneJoined'){
+            io.to(result.sessionID).emit('inGame', {
+              action: 'everyoneJoined',
+              currentLeaderIndex: result.currentLeaderIndex,
+              currentMission: result.currentMission,
+              currentRound: result.currentRound,
+            });
+          } else {
+            io.to(result.sessionID).emit('inGame', {
+              action: 'waitingFor',
+              waitingFor: result.waitingFor,
+            });
+          }
+        });
+        break;
+      default:
+        console.log(`unknown action: ${fields.action}`);
+        break;
+    }
+  });
   // socket.on('postGame')...
 });
