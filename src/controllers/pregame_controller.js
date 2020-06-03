@@ -126,7 +126,7 @@ export const startGame = (socketID) => {
   // console.log("startgame Called");
   return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
-      if (!foundGame.creatorID !== foundPlayer.creatorID) {
+      if (foundGame.creatorID !== foundPlayer.playerID) {
         return {
           action: 'fail',
           failMessage: 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.',
