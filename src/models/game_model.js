@@ -10,9 +10,8 @@ const GameSchema = new Schema({
   // the following is currently kept track of in the player model
   spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
-  inLobby: Boolean,
+  inLobby: { type: Boolean, default: true },
   currentMissionIndex: { type: Number, default: 0 },
-  
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },
