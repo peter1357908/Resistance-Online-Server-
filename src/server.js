@@ -78,7 +78,10 @@ io.on('connection', (socket) => {
         });
       } else {
         socket.join(fields.sessionID);
-        io.to(socket.id).emit('createGame', { playerID: result.playerID });
+        io.to(socket.id).emit('createGame', {
+          playerID: result.playerID,
+          sessionID: result.sessionID,
+        });
         io.to(fields.sessionID).emit('lobby', {
           action: 'someoneJoined',
           creatorID: result.creatorID,
@@ -100,7 +103,10 @@ io.on('connection', (socket) => {
         });
       } else {
         socket.join(fields.sessionID);
-        io.to(socket.id).emit('joinGame', { playerID: result.playerID });
+        io.to(socket.id).emit('joinGame', {
+          playerID: result.playerID,
+          sessionID: result.sessionID,
+        });
         io.to(fields.sessionID).emit('lobby', {
           action: 'someoneJoined',
           creatorID: result.creatorID,
@@ -145,9 +151,9 @@ io.on('connection', (socket) => {
               action: 'begin',
               playerIDs: result.playerIDs,
             });
-            
-            for (let spyIndex in result.spySockets){
-              io.to(result.spySockets[spyIndex]).emit('inGame', {
+
+            for (let i = 0; i < result.spySockets.length; i += 1) {
+              io.to(result.spySockets[i]).emit('inGame', {
                 action: 'setSpy',
                 spies: result.spies,
               });
@@ -159,7 +165,7 @@ io.on('connection', (socket) => {
         break;
       default:
         console.log(`unknown action: ${fields.action}`);
-      break;
+        break;
     }
   });
 
@@ -173,7 +179,7 @@ io.on('connection', (socket) => {
           //   action: 'waitingFor',
           //   waitingFor: result.waitingFor,
           // });
-          if (result.message === 'everyoneJoined'){
+          if (result.message === 'everyoneJoined') {
             io.to(result.sessionID).emit('inGame', {
               action: 'everyoneJoined',
               currentLeaderIndex: result.currentLeaderIndex,

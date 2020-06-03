@@ -27,6 +27,7 @@ Server sends to the client on the event `createGame`:
 ```
 {
     playerID: String,
+    sessionID: String,
 }
 ```
 Then the server broadcasts to the room `sessionID` on the event `lobby`:
@@ -70,6 +71,7 @@ Server sends to the client on the event `joinGame`:
 ```
 {
     playerID: String,
+    sessionID: String,
 }
 ```
 

@@ -2,41 +2,39 @@ import Game from '../models/game_model';
 import Player from '../models/player_model';
 import Mission from '../models/mission_model';
 import Round from '../models/round_model';
-import MissionSizes from '../resources/mission_sizes'
+import MissionSizes from '../resources/mission_sizes';
 
 export const heardFrom = (socketID) => {
-  return Player.findOne({ socketID:socketID }).then((foundPlayer) => {
+  return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
       foundGame.waitingFor.pull(foundPlayer._id);
       return foundGame.save().then((savedGame) => {
-        if (savedGame.waitingFor.length !== 0){
+        if (savedGame.waitingFor.length !== 0) {
           return savedGame.populate('waitingFor').execPopulate().then((populatedGame) => {
             const playerIDs = populatedGame.waitingFor.map((playerObject) => {
               return playerObject.playerID;
             });
             return {
-              message: "waitingFor",
+              message: 'waitingFor',
               sessionID: populatedGame.sessionID,
               waitingFor: playerIDs,
-            }
+            };
           }).catch((error) => { throw error; });
         } else {
-          newMission(savedGame.sessionID);
-        //   console.log('fields returned from first mission');
+          Mission.newMission(savedGame.sessionID);
           return {
-            message: "everyoneJoined",
+            message: 'everyoneJoined',
             waitingFor: [],
             sessionID: savedGame.sessionID,
             currentLeaderIndex: 0,
             currentMission: 0,
             currentRound: 0,
-          }
+          };
         }
       }).catch((error) => { throw error; });
     }).catch((error) => { throw error; });
   }).catch((error) => { throw error; });
 };
-
 
 
 // export const newMission = (socketID) => {
@@ -71,7 +69,7 @@ export const heardFrom = (socketID) => {
 
 
 export const newMission = (sessionID) => {
-  return Game.findOne({ sessionID: sessionID }).then((foundGame) => {
+  return Game.findOne({ sessionID }).then((foundGame) => {
     return foundGame.populate('players').execPopulate().then((populatedGame) => {
       const round = new Round();
       const leaderObject = populatedGame.players[populatedGame.currentLeaderIndex]; // could be tricky later
@@ -85,8 +83,8 @@ export const newMission = (sessionID) => {
         // mission.missionSize = MissionSizes[foundGame.players.length][0];
         mission.currentRound = 0;
         mission.rounds = [newRound._id];
-        return mission.save().then((newMission) => {
-          populatedGame.missions.push(newMission._id);
+        return mission.save().then((savedNewMission) => {
+          populatedGame.missions.push(savedNewMission._id);
           populatedGame.currentMissionIndex = foundGame.missions.length - 1;
           populatedGame.save().then((savedGame) => {
             return {
@@ -96,10 +94,10 @@ export const newMission = (sessionID) => {
               currentMissionIndex: savedGame.currentMissionIndex,
               currentRoundIndex: 0,
               // missionID: newMission._id,
-            };;
+            };
           }).catch((error) => { throw error; });
         }).catch((error) => { throw error; });
       }).catch((error) => { throw error; });
-    }).catch((error) => { throw error; })
+    }).catch((error) => { throw error; });
   }).catch((error) => { throw error; });
 };

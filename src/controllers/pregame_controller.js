@@ -1,8 +1,8 @@
 import Game from '../models/game_model';
 import Player from '../models/player_model';
-import Mission from '../models/mission_model';
-import Round from '../models/round_model';
-import MissionSizes from '../resources/mission_sizes';
+// import Mission from '../models/mission_model';
+// import Round from '../models/round_model';
+// import MissionSizes from '../resources/mission_sizes';
 
 export const createGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
@@ -31,8 +31,10 @@ export const createGame = (fields, socketID) => {
       game.password = fields.password;
       game.creatorID = savedPlayer.playerID;
       game.players = [savedPlayer._id];
+      game.inLobby = true;
       return game.save().then((savedGame) => {
         return {
+          sessionID: savedGame.sessionID,
           playerID: savedPlayer.playerID,
           creatorID: savedGame.creatorID,
           playerIDs: [savedPlayer.playerID],
@@ -65,7 +67,7 @@ export const joinGame = (fields, socketID) => {
         failMessage: 'password is incorrect',
       };
     }
-    if (foundGame.inLobby) {
+    if (!foundGame.inLobby) {
       return {
         playerID: null,
         failMessage: 'the session is not currently accepting new players (the game may have already started)',
@@ -99,6 +101,7 @@ export const joinGame = (fields, socketID) => {
                 return playerObject.playerID;
               });
               return {
+                sessionID: savedGame.sessionID,
                 playerID: savedPlayer.playerID,
                 creatorID: savedGame.creatorID,
                 playerIDs: playerIDsAfterJoin,
@@ -121,12 +124,15 @@ function shuffle2(array) {
   return array.sort(() => { return Math.random() - 0.5; }).slice(0);
 }
 
-// TODO: maybe move the initialization to game_controller?
+// TODO: maybe move the game initialization to game_controller?
 export const startGame = (socketID) => {
-  // console.log("startgame Called");
   return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
+      console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
       if (foundGame.creatorID !== foundPlayer.playerID) {
+        console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
+        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
+        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
         return {
           action: 'fail',
           failMessage: 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.',
@@ -175,7 +181,7 @@ export const startGame = (socketID) => {
               const spySockets = populatedWaitingGame.spies.map((playerObject) => {
                 return playerObject.socketID;
               });
-              
+
               return {
                 action: 'gameStarted',
                 sessionID: populatedWaitingGame.sessionID,
@@ -211,9 +217,8 @@ export const quitLobby = (socketID) => {
           if (foundPlayer.playerID === foundGame.creatorID) {
             Player.findById(foundGame.players[0]).then((foundNewCreator) => {
               foundGame.creatorID = foundNewCreator.playerID;
-            }).catch((error) => {
-              throw error;
-            });
+              foundGame.save().catch((error) => { throw error; });
+            }).catch((error) => { throw error; });
           }
           return gameWithouQuitter.populate('players').execPopulate().then((populatedGame) => {
             const playerIDs = populatedGame.players.map((playerObject) => {
@@ -224,12 +229,9 @@ export const quitLobby = (socketID) => {
               creatorID: foundGame.creatorID, // for constructing the message back to client
               sessionID: foundPlayer.sessionID, // for removing the client from the room they were in
             };
-          }).catch((error) => {
-            throw error;
-          });
+          }).catch((error) => { throw error; });
         }).catch((error) => { throw error; });
       }).catch((error) => { throw error; });
     }).catch((error) => { throw error; });
   }).catch((error) => { throw error; });
 };
-
