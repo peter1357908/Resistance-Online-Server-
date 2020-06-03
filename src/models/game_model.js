@@ -5,8 +5,9 @@ const GameSchema = new Schema({
   password: String,
   creatorID: String,
   players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  // playerNames: [String],
   // the following are currently kept track of in the player model
-  // spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   // resistance: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
 }, {

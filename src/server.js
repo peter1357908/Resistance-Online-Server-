@@ -141,9 +141,16 @@ io.on('connection', (socket) => {
               action: result.action,
             });
             io.to(result.sessionID).emit('inGame', {
-              currentLeaderID: result.currentLeaderID,
+              action: 'begin',
               playerIDs: result.playerIDs,
             });
+            
+            for (let spyIndex in result.spySockets){
+              io.to(result.spySockets[spyIndex]).emit('inGame', {
+                action: 'setspy',
+                spies: result.spies,
+              });
+            }
           }
         }).catch((error) => {
           io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });

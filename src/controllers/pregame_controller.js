@@ -99,40 +99,59 @@ export const joinGame = (fields, socketID) => {
   }).catch((error) => { throw error; });
 };
 
+
+// Helper function to shuffle an array
+function shuffle(array) {
+  array.sort(() => Math.random() - 0.5);
+}
+
+function shuffle2(array) {
+  return array.sort(() => Math.random() - 0.5).slice(0);
+}
+
 // TODO: maybe move the initialization to game_controller?
 export const startGame = (socketID) => {
-  // create new mission
-  // create new round
-  // pick one of the players to be the current leader
-
-  // TODO: check if the creator is the one starting the game
+  // console.log("startgame Called");
   return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
       // TODO: no magic numbers
-      if (foundGame.players.length < 5 || foundGame.players.length > 10) {
+      const numPlayers = foundGame.players.length;
+
+      if (numPlayers < 5 || numPlayers > 10) {
         return {
           action: 'fail',
           failMessage: 'Not enough people are in the lobby to start the game', // assuming that they didn't hack to somehow produce more than 10 players
         };
       }
-      // TODO: Make sure only creator has access to the start
-      // find a random leader; otherwise could have grabbed a random Player reference from foundGame.players, and find a Player
-      return Player.findOne({ sessionID: foundGame.sessionID }).then((leader) => {
-        const round = new Round();
-        round.currentLeaderID = leader.playerID;
-        return round.save().then((newRound) => {
-          const mission = new Mission();
-          [mission.missionSize] = MissionSizes[foundGame.players.length];
-          mission.currentRound = newRound;
-          mission.rounds = [newRound._id];
-          return mission.save().then((newMission) => {
-            const playerIDs = foundGame.players.map((playerObject) => {
+      const numSpies = Math.ceil(numPlayers / 3.0);
+      let newArray = shuffle2(foundGame.players);
+      for (let i = 0; i < numSpies; i++) {
+        const spyPlayerObjectId = newArray[i]
+        Player.findById(spyPlayerObjectId).then((foundSpy) => {
+          foundSpy.faction = 'SPY';
+          foundSpy.save().then((savedSpy) => {
+            foundGame.spies.push(savedSpy);
+          }).catch((error) => { throw error; });
+        }).catch((error) => { throw error; });
+      }
+      shuffle(foundGame.players);
+      return foundGame.save().then((savedGame) => {
+        return savedGame.populate('players').execPopulate().then((populatedGame) => {
+          return populatedGame.populate('spies').execPopulate().then((populatedSavedGame) => {
+            const playerIDs = populatedSavedGame.players.map((playerObject) => {
               return playerObject.playerID;
+            });
+            const spyIDs = populatedSavedGame.spies.map((playerObject) => {
+              return playerObject.playerID;
+            });
+            const spySockets = populatedSavedGame.spies.map((playerObject) => {
+              return playerObject.socketID;
             });
             return {
               action: 'gameStarted',
               sessionID: foundGame.sessionID,
-              currentLeaderID: newRound.currentLeaderID,
+              spies: spyIDs,
+              spySockets,
               playerIDs,
             };
           }).catch((error) => { throw error; });
