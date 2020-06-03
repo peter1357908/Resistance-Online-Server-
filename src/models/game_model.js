@@ -10,6 +10,7 @@ const GameSchema = new Schema({
   spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   // resistance: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
+  inLobby: Boolean,
 }, {
   toObject: { virtuals: true }, // why?
   toJSON: { virtuals: true }, // why?

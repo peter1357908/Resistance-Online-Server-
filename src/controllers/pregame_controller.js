@@ -65,6 +65,18 @@ export const joinGame = (fields, socketID) => {
         failMessage: 'password is incorrect',
       };
     }
+    if (foundGame.inLobby) {
+      return {
+        playerID: null,
+        failMessage: 'the session is not currently accepting new players (the game may have already started)',
+      };
+    }
+    if (foundGame.players.length >= 10) {
+      return {
+        playerID: null,
+        failMessage: 'the session is already full',
+      };
+    }
     return foundGame.populate('players').execPopulate().then((populatedGame) => {
       const playerIDsBeforeJoin = populatedGame.players.map((playerObject) => {
         return playerObject.playerID;
@@ -102,11 +114,11 @@ export const joinGame = (fields, socketID) => {
 
 // Helper function to shuffle an array
 function shuffle(array) {
-  array.sort(() => Math.random() - 0.5);
+  array.sort(() => { return Math.random() - 0.5; });
 }
 
 function shuffle2(array) {
-  return array.sort(() => Math.random() - 0.5).slice(0);
+  return array.sort(() => { return Math.random() - 0.5; }).slice(0);
 }
 
 // TODO: maybe move the initialization to game_controller?
@@ -124,9 +136,9 @@ export const startGame = (socketID) => {
         };
       }
       const numSpies = Math.ceil(numPlayers / 3.0);
-      let newArray = shuffle2(foundGame.players);
-      for (let i = 0; i < numSpies; i++) {
-        const spyPlayerObjectId = newArray[i]
+      const newArray = shuffle2(foundGame.players);
+      for (let i = 0; i < numSpies; i += 1) {
+        const spyPlayerObjectId = newArray[i];
         Player.findById(spyPlayerObjectId).then((foundSpy) => {
           foundSpy.faction = 'SPY';
           foundSpy.save().then((savedSpy) => {
@@ -135,6 +147,9 @@ export const startGame = (socketID) => {
         }).catch((error) => { throw error; });
       }
       shuffle(foundGame.players);
+
+      foundGame.inLobby = false;
+
       return foundGame.save().then((savedGame) => {
         return savedGame.populate('players').execPopulate().then((populatedGame) => {
           return populatedGame.populate('spies').execPopulate().then((populatedSavedGame) => {
