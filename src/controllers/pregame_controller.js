@@ -126,9 +126,20 @@ export const startGame = (socketID) => {
   // console.log("startgame Called");
   return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
+      if (!foundGame.creatorID !== foundPlayer.creatorID) {
+        return {
+          action: 'fail',
+          failMessage: 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.',
+        };
+      }
+      if (!foundGame.inLobby) {
+        return {
+          action: 'fail',
+          failMessage: 'You must have bypassed the front-end to try starting a game outside lobby... Nice try.',
+        };
+      }
       // TODO: no magic numbers
       const numPlayers = foundGame.players.length;
-
       if (numPlayers < 5 || numPlayers > 10) {
         return {
           action: 'fail',
