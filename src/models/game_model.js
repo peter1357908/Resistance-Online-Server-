@@ -12,6 +12,7 @@ const GameSchema = new Schema({
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
   inLobby: { type: Boolean, default: true },
   currentMissionIndex: { type: Number, default: 0 },
+  logs: [{ playerID: String, message: String }],
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

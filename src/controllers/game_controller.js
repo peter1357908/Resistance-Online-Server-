@@ -9,7 +9,7 @@ export const heardFrom = (socketID) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
       foundGame.waitingFor.pull(foundPlayer._id);
       return foundGame.save().then(async (savedGame) => {
-        if (savedGame.waitingFor.length !== 0){
+        if (savedGame.waitingFor.length !== 0) {
           return savedGame.populate('waitingFor').execPopulate().then((populatedGame) => {
             const playerIDs = populatedGame.waitingFor.map((playerObject) => {
               return playerObject.playerID;
@@ -31,7 +31,7 @@ export const heardFrom = (socketID) => {
             currentMission: fields.currentMissionIndex,
             currentRound: fields.currentRoundIndex,
             missionSize: fields.missionSize,
-          }
+          };
         }
       }).catch((error) => { throw error; });
     }).catch((error) => { throw error; });
@@ -143,3 +143,14 @@ export const newMission = (sessionID) => {
 //     }).catch((error) => { throw error; })
 //   }).catch((error) => { throw error; });
 // };
+
+export const newChat = (socketID, fields) => {
+  return Player.findOne({ socketID }).then((foundPlayer) => {
+    return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
+      foundGame.logs.push({ playerID: fields.messageFrom, message: fields.message });
+      return foundGame.save().then((savedGame) => {
+        return { sessionID: savedGame.sessionID, logs: savedGame.logs };
+      }).catch((error) => { throw error; });
+    }).catch((error) => { throw error; });
+  }).catch((error) => { throw error; });
+};
