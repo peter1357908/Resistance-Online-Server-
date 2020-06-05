@@ -200,5 +200,11 @@ io.on('connection', (socket) => {
         break;
     }
   });
+
+  socket.on('chat', (fields) => {
+    Ingame.newChat(socket.id, fields).then((result) => {
+      io.to(result.sessionID).emit('chat', result.logs);
+    });
+  });
   // socket.on('postGame')...
 });
