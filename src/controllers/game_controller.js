@@ -240,7 +240,9 @@ export const voteOnTeamProposal = (fields, socketID) => {
       return Round.findById(foundCurrentMission.rounds[gameAfterSave.currentRoundIndex]);
     })
     .then((foundCurrentRound) => {
-      foundCurrentRound.voteByPlayerIndex[gameAfterSave.playerIDs.indexOf(votingPlayer.playerID)] = fields.voteType;
+      // https://stackoverflow.com/questions/24618584/mongoose-save-not-updating-value-in-an-array-in-database-document
+      // BAD ATTEMPT: foundCurrentRound.voteByPlayerIndex[gameAfterSave.playerIDs.indexOf(votingPlayer.playerID)] = fields.voteType;
+      foundCurrentRound.voteByPlayerIndex.set(gameAfterSave.playerIDs.indexOf(votingPlayer.playerID), fields.voteType);
       if (numCurrentlyWaiting === 0) {
         // all votes are cast; check if the team proposal has been approved or rejected
         const numTotalVotes = foundCurrentRound.voteByPlayerIndex.length; // at this point should be the same as the number of players

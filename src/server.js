@@ -184,7 +184,6 @@ io.on('connection', (socket) => {
         break;
       case 'voteOnTeamProposal':
         Ingame.voteOnTeamProposal(fields, socket.id).then((result) => {
-          console.log(result);
           io.to(result.sessionID).emit('inGame', {
             action: 'waitingFor',
             waitingFor: result.waitingFor,
@@ -196,12 +195,12 @@ io.on('connection', (socket) => {
               roundOutcome: result.roundOutcome,
               concludedRound: result.concludedRound,
             });
-          }
-          if (result.failedMission !== null) {
-            io.to(result.sessionID).emit('inGame', {
-              action: 'tooManyRounds',
-              failedMission: result.failedMission,
-            });
+            if (result.failedMission !== null) {
+              io.to(result.sessionID).emit('inGame', {
+                action: 'tooManyRounds',
+                failedMission: result.failedMission,
+              });
+            }
           }
         }).catch((error) => {
           console.log(error);
