@@ -128,11 +128,7 @@ function shuffle2(array) {
 export const startGame = (socketID) => {
   return Player.findOne({ socketID }).then((foundPlayer) => {
     return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
-      console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
       if (foundGame.creatorID !== foundPlayer.playerID) {
-        console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
-        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
-        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
         return {
           action: 'fail',
           failMessage: 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.',
@@ -167,7 +163,10 @@ export const startGame = (socketID) => {
 
       foundGame.inLobby = false;
 
+      // prepare for the next expected action
       foundGame.waitingFor = foundGame.players.slice(0);
+      foundGame.currentExpectedInGameAction = 'factionViewed';
+
       return foundGame.save().then((savedGame) => {
         return savedGame.populate('players').execPopulate().then((populatedGame) => {
           return populatedGame.populate('spies').execPopulate().then((populatedSavedGame) => {

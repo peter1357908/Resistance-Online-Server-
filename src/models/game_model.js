@@ -4,14 +4,20 @@ const GameSchema = new Schema({
   sessionID: String,
   password: String,
   creatorID: String,
-  currentLeaderIndex: { type: Number, default: 0 },
+
   players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  currentLeaderIndex: Number,
   waitingFor: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  // the following is currently kept track of in the player model
   spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  // waitingForIndex: [Number],
+  // spiesIndex: [Number],
+
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
-  inLobby: { type: Boolean, default: true },
-  currentMissionIndex: { type: Number, default: 0 },
+  currentMissionIndex: Number,
+
+  inLobby: Boolean,
+  currentExpectedInGameAction: String,
+
   logs: [{ playerID: String, message: String }],
 }, {
   toObject: { virtuals: true },

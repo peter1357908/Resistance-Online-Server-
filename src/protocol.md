@@ -186,7 +186,14 @@ once server receives a client's request, check to see if the `waitingFor` array 
 }
 ```
 
-Both the server and the client should assume that the game is proceeding to the next phase (*first round begins*) upon sending/receiving the above server response with an empty `waitingFor` array.
+Once the server has received a 'factionViewed' action from the last client, it broadcasts to all the clients on the event `inGame`:
+{
+    action: 'everyoneJoined'
+    currentLeaderID: String // the playerID of the current leader
+    currentMission: Integer // it appears that the backend is sending an integer ranging from 0 to 4
+    missionSize: Integer // how many players are needed on the current mission
+    currentRound: Integer 
+}
 
 ## ROUND LEADER CLICKS ON CARD
 client sends to the server on the event `inGame`:
@@ -235,18 +242,62 @@ client sends to the server on the event `inGame` after user finalizes on the vot
 }
 ```
 
-if the vote came from someone who has not cast a vote yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
+If the vote came from someone who has not cast a vote yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
+{
+    action: 'waitingFor',
+    waitingFor: [String], // playerIDs
+}
+
+Once the last vote is received, the server broadcasts to the room `sessionID` on event `inGame`:
+{
+    action: 'roundVotes',
+    voteComposition: { playerID: voteType } // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
+    voteResult: String, // Either APPROVE or REJECT, depending on which gets the majority (tie goes to reject)
+    round: Integer // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+}
+
+If this was this fifth round that just failed, the server broadcasts to the room `sessionID` on event `inGame`:
+```
+{
+    action: 'tooManyRounds',
+    missionNumber: Integer, // integer from 1 to 5
+}
+```
+
+## CLIENT CLICKS 'OK' AFTER VIEWING VOTES
+After the user clicks 'ok', client sends to the server on the event 'inGame'
+```
+{
+    action: 'votesViewed',
+}
+```
+
+Once server receives a client's request, check to see if the `waitingFor` array needs to be updated; if it does, broadcast the following message to `sessionID` on event `inGame`:
 ```
 {
     action: 'waitingFor',
     waitingFor: [String], // playerIDs
-    nextLeader: String, // `null` if the team proposal is approved or if there are still players who haven't voted; otherwise, the playerID for leader of the current mission's next round.
-    voteComposition: { playerID: voteType } // `null` if there are still players who haven't voted; otherwise, an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
-    teamComposition: [String], // `null` if the team proposal is rejected or if there are still players who haven't voted; otherwise, playerIDs of the players that are in the mission
 }
 ```
 
-Both the server and the client should assume that the game is proceeding to the next phase (*client views votes and either another round starts or the mission starts*) upon sending/receiving the above server response with an empty `waitingFor` array (or a non-`null` `voteComposition`/`teamComposition`).
+Once the server receives the 'votesViewed' message from the last client, the server broadcasts the following message to `sessionID` on event `inGame`:
+
+If the team proposal was approved:
+```
+{
+    action: 'missionStarting'
+    playersOnMission: [String] // array of playerIDs
+}
+```
+
+Else (the team proposal was rejected):
+```
+{
+    action: 'teamSelectionStarting',
+    currentLeaderID: String, // PlayerID
+    currentMission: Integer, // expecting an integer between 1 and 5, inclusive
+}
+```
 
 ## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:
@@ -257,17 +308,34 @@ client sends to the server on the event `inGame` after user finalizes on the vot
 }
 ```
 
-if the vote came from someone needs to cast a vote but has not done so yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
+if the vote came from someone who needs to cast a vote but has not done so yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
 ```
 {
     action: 'waitingFor',
     waitingFor: [String], // playerIDs
-    nextLeader: String, // `null` if there are still players who haven't voted; otherwise, the playerID for the leader of the next mission's first round.
-    missionOutcome: String, // `null` if there are still players who haven't voted; otherwise, 'SUCCESS' or 'FAIL'
 }
 ```
 
-Both the server and the client should assume that the game is proceeding to the next phase (*client views mission outcome and either the next mission's first round starts or the game ends*) upon sending/receiving the above server response with an empty `waitingFor` array (or a non-`null` `missionOutcome`).
+After everyone voted, the server broadcasts the following message to the room `sessionID` on event `inGame`:
+```
+{
+    action: 'missionVotes',
+    missionNumber: Integer // what mission we were on
+    missionOutcome: String // either 'SUCCEEDED' OR 'FAILED'
+    numFailVotes: Integer // how many fail votes were received
+}
+```
+
+**If the game has not ended**, the server then broadcasts to the room `sessionID` on event `inGame`:
+```
+{
+    action: 'teamSelectionStarting',
+    currentLeaderID: String,
+    currentMission: Integer,
+}
+```
+
+**If the game has ended**, then the client will be able to view game history. Note (from Will): I haven't fully looked over the next section yet.
 
 **If** the above message is for the outcome of the last mission (conditions are met for some faction to win):
 The server sends to `sessionID` on event `inGame`:

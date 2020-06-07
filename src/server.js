@@ -133,14 +133,14 @@ io.on('connection', (socket) => {
             });
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          io.to(socket.id).emit('lobby', { action: 'fail', failMessage: error });
         });
         break;
       case 'startGame':
         Pregame.startGame(socket.id).then((result) => {
           if (result.action === 'fail') {
             io.to(socket.id).emit('lobby', {
-              action: 'fail',
+              action: result.action,
               failMessage: result.failMessage,
             });
           } else {
@@ -160,7 +160,7 @@ io.on('connection', (socket) => {
             }
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          io.to(socket.id).emit('lobby', { action: 'fail', failMessage: error });
         });
         break;
       default:
@@ -182,10 +182,10 @@ io.on('connection', (socket) => {
           if (result.message === 'everyoneJoined') {
             io.to(result.sessionID).emit('inGame', {
               action: 'everyoneJoined',
-              currentLeaderIndex: result.currentLeaderIndex,
+              currentLeaderID: result.currentLeaderID,
               currentMission: result.currentMission,
-              currentRound: result.currentRound,
               missionSize: result.missionSize,
+              currentRound: result.currentRound,
             });
           } else {
             io.to(result.sessionID).emit('inGame', {
@@ -193,6 +193,20 @@ io.on('connection', (socket) => {
               waitingFor: result.waitingFor,
             });
           }
+        }).catch((error) => {
+          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+        });
+        break;
+      case 'proposeTeam':
+        Ingame.proposeTeam(fields, socket.id).then((result) => {
+          if (result.action !== 'noAction') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              proposedTeam: result.proposedTeam,
+            });
+          }
+        }).catch((error) => {
+          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
         });
         break;
       default:

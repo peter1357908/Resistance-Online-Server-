@@ -4,7 +4,6 @@ const PlayerSchema = new Schema({
   playerID: String,
   socketID: String,
   sessionID: String,
-  faction: { type: String, default: 'RESISTANCE' }, // Either 'RESISTANCE' or 'SPY'
 }, {
   toObject: { virtuals: true }, // why?
   toJSON: { virtuals: true }, // why?
