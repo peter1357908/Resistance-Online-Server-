@@ -1,237 +1,261 @@
 import Game from '../models/game_model';
 import Player from '../models/player_model';
-// import Mission from '../models/mission_model';
-// import Round from '../models/round_model';
-// import MissionSizes from '../resources/mission_sizes';
+
+// --------------------------------------------------------------------------
+// Helper Functions
+// https://medium.com/@nitinpatel_20236/how-to-shuffle-correctly-shuffle-an-array-in-javascript-15ea3f84bfb
+const shuffle = (array) => {
+  for (let i = array.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * i);
+    const temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+  }
+};
 
 export const createGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
-      resolve({
-        playerID: null,
-        failMessage: 'all fields must be filled out',
-      });
+      reject(new Error('all fields must be filled out'));
     });
   }
-  return Game.findOne({ sessionID: fields.sessionID }).then((foundGame) => {
-    // if a game with the same sessionID already exists, fail the creation request
-    if (foundGame != null) {
-      return {
-        playerID: null,
-        failMessage: 'the sessionID already exists',
-      };
-    }
-    const player = new Player();
-    player.playerID = fields.playerID;
-    player.sessionID = fields.sessionID;
-    player.socketID = socketID;
-    return player.save().then((savedPlayer) => {
+  return Game.findOne({ sessionID: fields.sessionID })
+    .then((foundGame) => {
+      // if a game with the same sessionID already exists, fail the creation request
+      if (foundGame != null) {
+        throw new Error('the sessionID already exists');
+      }
       const game = new Game();
       game.sessionID = fields.sessionID;
       game.password = fields.password;
-      game.creatorID = savedPlayer.playerID;
-      game.players = [savedPlayer._id];
+      game.creatorID = fields.playerID;
+      game.playerIDs = [fields.playerID];
+      game.currentMissionIndex = -1;
       game.inLobby = true;
-      return game.save().then((savedGame) => {
-        return {
-          sessionID: savedGame.sessionID,
-          playerID: savedPlayer.playerID,
-          creatorID: savedGame.creatorID,
-          playerIDs: [savedPlayer.playerID],
-        };
-      }).catch((error) => { throw error; });
-    }).catch((error) => { throw error; });
-  }).catch((error) => { throw error; });
+      return game.save();
+    })
+    .then((savedGame) => {
+      const player = new Player();
+      player.playerID = fields.playerID;
+      player.sessionID = fields.sessionID;
+      player.socketID = socketID;
+      return player.save();
+    })
+    .then((savedPlayer) => {
+      // assuming that the saved values are the same as the input fields
+      return {
+        sessionID: fields.sessionID,
+        playerID: fields.playerID,
+        creatorID: fields.playerID,
+        playerIDs: [fields.playerID],
+      };
+    })
+    .catch((error) => { throw error; });
 };
 
-// TODO: what if join fails in any way
 export const joinGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
-      resolve({
-        playerID: null,
-        failMessage: 'all fields must be filled out',
-      });
+      reject(new Error('all fields must be filled out'));
     });
   }
-  return Game.findOne({ sessionID: fields.sessionID }).then((foundGame) => {
-    if (foundGame === null) {
-      return {
-        playerID: null,
-        failMessage: 'sessionID is not found',
-      };
-    }
-    if (foundGame.password !== fields.password) {
-      return {
-        playerID: null,
-        failMessage: 'password is incorrect',
-      };
-    }
-    if (!foundGame.inLobby) {
-      return {
-        playerID: null,
-        failMessage: 'the session is not currently accepting new players (the game may have already started)',
-      };
-    }
-    if (foundGame.players.length >= 10) {
-      return {
-        playerID: null,
-        failMessage: 'the session is already full',
-      };
-    }
-    return foundGame.populate('players').execPopulate().then((populatedGame) => {
-      const playerIDsBeforeJoin = populatedGame.players.map((playerObject) => {
-        return playerObject.playerID;
-      });
-      if (playerIDsBeforeJoin.includes(fields.playerID)) {
-        return {
-          playerID: null,
-          failMessage: 'playerID already taken in the target session',
-        };
-      } else {
-        const player = new Player();
-        player.playerID = fields.playerID;
-        player.sessionID = fields.sessionID;
-        player.socketID = socketID;
-        return player.save().then((savedPlayer) => {
-          populatedGame.players.push(savedPlayer._id);
-          return populatedGame.save().then((savedGame) => {
-            return savedGame.populate('players').execPopulate().then((populatedSavedGame) => {
-              const playerIDsAfterJoin = populatedSavedGame.players.map((playerObject) => {
-                return playerObject.playerID;
-              });
-              return {
-                sessionID: savedGame.sessionID,
-                playerID: savedPlayer.playerID,
-                creatorID: savedGame.creatorID,
-                playerIDs: playerIDsAfterJoin,
-              };
-            }).catch((error) => { throw error; });
-          }).catch((error) => { throw error; });
-        }).catch((error) => { throw error; });
+
+  let finalGame;
+  return Game.findOne({ sessionID: fields.sessionID })
+    .then((foundGame) => {
+      let failMessage = null;
+      if (foundGame === null) {
+        failMessage = 'sessionID is not found';
+      } else if (foundGame.password !== fields.password) {
+        failMessage = 'password is incorrect';
+      } else if (!foundGame.inLobby) {
+        failMessage = 'the session is not currently accepting new players (the game may have already started)';
+      } else if (foundGame.playerIDs.length >= 10) {
+        failMessage = 'the session is already full';
+      } else if (foundGame.playerIDs.includes(fields.playerID)) {
+        failMessage = 'playerID already taken in the target session';
       }
-    }).catch((error) => { throw error; });
-  }).catch((error) => { throw error; });
+      if (failMessage !== null) {
+        throw new Error(failMessage);
+      }
+      foundGame.playerIDs.push(fields.playerID);
+      return foundGame.save();
+    })
+    .then((savedGame) => {
+      finalGame = savedGame;
+      const player = new Player();
+      player.playerID = fields.playerID;
+      player.sessionID = fields.sessionID;
+      player.socketID = socketID;
+      return player.save();
+    })
+    .then((savedPlayer) => {
+      return {
+        sessionID: savedPlayer.sessionID,
+        playerID: savedPlayer.playerID,
+        creatorID: finalGame.creatorID,
+        playerIDs: finalGame.playerIDs,
+      };
+    })
+    .catch((error) => { throw error; });
 };
 
-
-// Helper function to shuffle an array
-function shuffle(array) {
-  array.sort(() => { return Math.random() - 0.5; });
-}
-
-function shuffle2(array) {
-  return array.sort(() => { return Math.random() - 0.5; }).slice(0);
-}
-
-// TODO: maybe move the game initialization to game_controller?
 export const startGame = (socketID) => {
-  return Player.findOne({ socketID }).then((foundPlayer) => {
-    return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
-      console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
-      if (foundGame.creatorID !== foundPlayer.playerID) {
-        console.log(`${foundGame.creatorID}, ${foundPlayer.playerID}`);
-        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
-        console.log(`${foundGame.creatorID === foundPlayer.playerID}`);
-        return {
-          action: 'fail',
-          failMessage: 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.',
-        };
+  let requestingPlayer;
+  const spySocketIDs = [];
+  return Player.findOne({ socketID })
+    .then((foundPlayer) => {
+      if (foundPlayer === null) {
+        throw new Error('You tried to start a game without being a player... did you accidentally fresh the page?');
       }
-      if (!foundGame.inLobby) {
-        return {
-          action: 'fail',
-          failMessage: 'You must have bypassed the front-end to try starting a game outside lobby... Nice try.',
-        };
+      requestingPlayer = foundPlayer;
+      return Game.findOne({ sessionID: foundPlayer.sessionID });
+    })
+    .then((foundGame) => {
+      let failMessage = null;
+      const numPlayers = foundGame.playerIDs.length;
+      if (foundGame.creatorID !== requestingPlayer.playerID) {
+        failMessage = 'You must have bypassed the front-end to try starting a game without being the session\'s creator... Nice try.';
+      } else if (!foundGame.inLobby) {
+        failMessage = 'You must have bypassed the front-end to try starting a game outside lobby... Nice try.';
+      } else if (numPlayers < 5 || numPlayers > 10) {
+        // TODO: no magic numbers
+        failMessage = 'Not enough people are in the lobby to start the game'; // assuming that they didn't hack to somehow produce more than 10 players
       }
-      // TODO: no magic numbers
-      const numPlayers = foundGame.players.length;
-      if (numPlayers < 5 || numPlayers > 10) {
-        return {
-          action: 'fail',
-          failMessage: 'Not enough people are in the lobby to start the game', // assuming that they didn't hack to somehow produce more than 10 players
-        };
+      if (failMessage !== null) {
+        throw new Error(failMessage);
       }
+
+      // TODO: no magic formulas
       const numSpies = Math.ceil(numPlayers / 3.0);
-      const newArray = shuffle2(foundGame.players);
+      // first shuffle ensures that the spies are not always the first players that joined
+      shuffle(foundGame.playerIDs);
       for (let i = 0; i < numSpies; i += 1) {
-        const spyPlayerObjectId = newArray[i];
-        Player.findById(spyPlayerObjectId).then((foundSpy) => {
-          foundSpy.faction = 'SPY';
-          foundSpy.save().then((savedSpy) => {
-            foundGame.spies.push(savedSpy);
-          }).catch((error) => { throw error; });
-        }).catch((error) => { throw error; });
+        const spyPlayerID = foundGame.playerIDs[i];
+        Player.findOne({ playerID: spyPlayerID, sessionID: foundGame.sessionID })
+          .then((foundSpyPlayer) => { spySocketIDs.push(foundSpyPlayer.socketID); })
+          .catch((error) => { throw error; });
+        foundGame.spies.push(spyPlayerID);
       }
-      shuffle(foundGame.players);
+      // second shuffle ensures that the spies are not always the first players after the first shuffle...
+      shuffle(foundGame.playerIDs);
 
       foundGame.inLobby = false;
 
-      foundGame.waitingFor = foundGame.players.slice(0);
-      return foundGame.save().then((savedGame) => {
-        return savedGame.populate('players').execPopulate().then((populatedGame) => {
-          return populatedGame.populate('spies').execPopulate().then((populatedSavedGame) => {
-            return populatedSavedGame.populate('waitingFor').execPopulate().then((populatedWaitingGame) => {
-              const playerIDs = populatedWaitingGame.waitingFor.map((playerObject) => {
-                return playerObject.playerID;
-              });
-              const spyIDs = populatedWaitingGame.spies.map((playerObject) => {
-                return playerObject.playerID;
-              });
-              const spySockets = populatedWaitingGame.spies.map((playerObject) => {
-                return playerObject.socketID;
-              });
+      // prepare for the next expected action
+      foundGame.waitingFor = foundGame.playerIDs.slice(0);
+      foundGame.currentExpectedInGameAction = 'factionViewed';
 
-              return {
-                action: 'gameStarted',
-                sessionID: populatedWaitingGame.sessionID,
-                spies: spyIDs,
-                spySockets,
-                playerIDs,
-              };
-            }).catch((error) => { throw error; });
-          }).catch((error) => { throw error; });
-        }).catch((error) => { throw error; });
-      }).catch((error) => { throw error; });
-    }).catch((error) => { throw error; });
-  }).catch((error) => { throw error; });
+      return foundGame.save();
+    })
+    .then(async (savedGame) => {
+      return {
+        action: 'gameStarted',
+        sessionID: savedGame.sessionID,
+        spies: savedGame.spies,
+        playerIDs: savedGame.playerIDs,
+        spySocketIDs: await Promise.all(spySocketIDs),
+      };
+    })
+    .catch((error) => { throw error; });
 };
 
 export const quitLobby = (socketID) => {
-  return Player.findOne({ socketID }).then((foundPlayer) => {
-    return Game.findOne({ sessionID: foundPlayer.sessionID }).then((foundGame) => {
-      // first delete the player document
-      return Player.findByIdAndRemove(foundPlayer._id).then((playerRemovalResult) => {
-        // if the quitter is the only player (creator) in the lobby, delete the game entry entirely
-        // enhanced security by checking both number of players and the player's identity
-        if (foundGame.players.length === 1 && foundPlayer.playerID === foundGame.creatorID) {
-          return Game.findByIdAndRemove(foundGame._id).then((gameRemovalResult) => {
-            return { playerIDs: null };
+  return Player.findOne({ socketID })
+    .then((quittingPlayer) => {
+      if (quittingPlayer === null) {
+        // reaching here could mean that the client refreshed the lobby page and clicked quit (the client is not a player yet)
+        return { playerIDs: null };
+      } else {
+        // first delete the player document
+        return Player.findByIdAndRemove(quittingPlayer._id)
+          .then((playerRemovalResult) => {
+            return Game.findOne({ sessionID: quittingPlayer.sessionID });
+          })
+          .then((foundGame) => {
+            if (foundGame.playerIDs.length === 1 && quittingPlayer.playerID === foundGame.creatorID) {
+              // if the quitter is the only player (creator) in the lobby, delete the game entry entirely
+              // enhanced security by checking both number of players and the player's identity
+              return Game.findByIdAndRemove(foundGame._id)
+                .then((gameRemovalResult) => { return { playerIDs: null }; })
+                .catch((error) => { throw error; });
+            } else if (foundGame.playerIDs.length === 1) {
+              // impossible situation: the quitter is a player, but not the creator of their session, yet their session has only one player...
+              throw new Error('If you are getting this meesage... we made some serious coding mistakes...');
+            } else {
+              // otherwise, the quitter is not the only player in the lobby; remove the player from the game document
+              foundGame.playerIDs.pull(quittingPlayer.playerID);
+              return foundGame.save()
+                .then((gameWithouQuitter) => {
+                  // transfer the creator status if necessary
+                  if (quittingPlayer.playerID === gameWithouQuitter.creatorID) {
+                    [gameWithouQuitter.creatorID] = gameWithouQuitter.playerIDs;
+                    gameWithouQuitter.save().catch((error) => { throw error; });
+                  }
+                  return {
+                    playerIDs: gameWithouQuitter.playerIDs, // for constructing the message back to client
+                    creatorID: gameWithouQuitter.creatorID, // for constructing the message back to client
+                    sessionID: gameWithouQuitter.sessionID, // for removing the client from the room they were in
+                  };
+                })
+                .catch((error) => { throw error; });
+            }
           });
-        }
+      }
+    })
+    .catch((error) => { throw error; });
+};
 
-        // otherwise, the quitter is not the only player in the lobby; remove the player from the game
-        foundGame.players.remove(foundPlayer._id);
-        return foundGame.save().then((gameWithouQuitter) => {
-          // transfer the creator status if necessary
-          if (foundPlayer.playerID === foundGame.creatorID) {
-            Player.findById(foundGame.players[0]).then((foundNewCreator) => {
-              foundGame.creatorID = foundNewCreator.playerID;
-              foundGame.save().catch((error) => { throw error; });
-            }).catch((error) => { throw error; });
-          }
-          return gameWithouQuitter.populate('players').execPopulate().then((populatedGame) => {
-            const playerIDs = populatedGame.players.map((playerObject) => {
-              return playerObject.playerID;
-            });
-            return {
-              playerIDs, // for constructing the message back to client
-              creatorID: foundGame.creatorID, // for constructing the message back to client
-              sessionID: foundPlayer.sessionID, // for removing the client from the room they were in
-            };
-          }).catch((error) => { throw error; });
-        }).catch((error) => { throw error; });
-      }).catch((error) => { throw error; });
+// special function that applies to all stages of the game
+export const handleDisconnection = (socketID) => {
+  return Player.findOne({ socketID })
+    .then((disconnectingPlayer) => {
+      if (disconnectingPlayer === null) {
+        // the disconnecting client is not even a player yet...
+        return { playerIDs: null };
+      } else {
+        return Game.findOne({ sessionID: disconnectingPlayer.sessionID })
+          .then((foundGame) => {
+            if (foundGame.inLobby) {
+              // first delete the player document
+              return Player.findByIdAndRemove(disconnectingPlayer._id)
+                .then((playerRemovalResult) => {
+                  if (foundGame.playerIDs.length === 1 && disconnectingPlayer.playerID === foundGame.creatorID) {
+                    // if the quitter is the only player (creator) in the lobby, delete the game entry entirely
+                    // enhanced security by checking both number of players and the player's identity
+                    return Game.findByIdAndRemove(foundGame._id)
+                      .then((gameRemovalResult) => { return { playerIDs: null }; })
+                      .catch((error) => { throw error; });
+                  } else if (foundGame.playerIDs.length === 1) {
+                    // impossible situation: the quitter is a player, but not the creator of their session, yet their session has only one player...
+                    throw new Error('We made some serious coding mistakes...');
+                  } else {
+                    // otherwise, the quitter is not the only player in the lobby; remove the player from the game document
+                    foundGame.playerIDs.pull(disconnectingPlayer.playerID);
+                    return foundGame.save()
+                      .then((gameWithouQuitter) => {
+                        // transfer the creator status if necessary
+                        if (disconnectingPlayer.playerID === gameWithouQuitter.creatorID) {
+                          [gameWithouQuitter.creatorID] = gameWithouQuitter.playerIDs;
+                          gameWithouQuitter.save().catch((error) => { throw error; });
+                        }
+                        return {
+                          event: 'lobby', // for determining if the message is for event 'lobby', 'inGame'... or 'postGame'?
+                          playerIDs: gameWithouQuitter.playerIDs, // for constructing the message back to client
+                          creatorID: gameWithouQuitter.creatorID, // for constructing the message back to client
+                          sessionID: gameWithouQuitter.sessionID, // for removing the client from the room they were in
+                        };
+                      })
+                      .catch((error) => { throw error; });
+                  }
+                })
+                .catch((error) => { throw error; });
+            } else {
+              // TODO!! handle inGame disconnection gracefully... currently nothing is done...
+              return { playerIDs: null };
+            }
+          })
+          .catch((error) => { throw error; });
+      }
     }).catch((error) => { throw error; });
-  }).catch((error) => { throw error; });
 };

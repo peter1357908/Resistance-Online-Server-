@@ -71,50 +71,36 @@ io.on('connection', (socket) => {
 
   socket.on('createGame', (fields) => {
     Pregame.createGame(fields, socket.id).then((result) => {
-      if (result.playerID === null) {
-        io.to(socket.id).emit('createGame', {
-          playerID: null,
-          failMessage: result.failMessage,
-        });
-      } else {
-        socket.join(fields.sessionID);
-        io.to(socket.id).emit('createGame', {
-          playerID: result.playerID,
-          sessionID: result.sessionID,
-        });
-        io.to(fields.sessionID).emit('lobby', {
-          action: 'someoneJoined',
-          creatorID: result.creatorID,
-          playerIDs: result.playerIDs,
-        }); // equivalent to io.to(socket.id) HERE
-      }
+      socket.join(fields.sessionID);
+      io.to(socket.id).emit('createGame', {
+        playerID: result.playerID,
+        sessionID: result.sessionID,
+      });
+      io.to(fields.sessionID).emit('lobby', {
+        action: 'someoneJoined',
+        creatorID: result.creatorID,
+        playerIDs: result.playerIDs,
+      }); // equivalent to io.to(socket.id) HERE
     }).catch((error) => {
-      io.to(socket.id).emit('createGame', { playerID: null, failMessage: error });
+      io.to(socket.id).emit('createGame', { playerID: null, failMessage: error.message });
     });
   });
 
   // TODO: handle errors
   socket.on('joinGame', (fields) => {
     Pregame.joinGame(fields, socket.id).then((result) => {
-      if (result.playerID === null) {
-        io.to(socket.id).emit('joinGame', {
-          playerID: null,
-          failMessage: result.failMessage,
-        });
-      } else {
-        socket.join(fields.sessionID);
-        io.to(socket.id).emit('joinGame', {
-          playerID: result.playerID,
-          sessionID: result.sessionID,
-        });
-        io.to(fields.sessionID).emit('lobby', {
-          action: 'someoneJoined',
-          creatorID: result.creatorID,
-          playerIDs: result.playerIDs,
-        });
-      }
+      socket.join(fields.sessionID);
+      io.to(socket.id).emit('joinGame', {
+        playerID: result.playerID,
+        sessionID: result.sessionID,
+      });
+      io.to(fields.sessionID).emit('lobby', {
+        action: 'someoneJoined',
+        creatorID: result.creatorID,
+        playerIDs: result.playerIDs,
+      });
     }).catch((error) => {
-      io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error });
+      io.to(socket.id).emit('joinGame', { playerID: null, failMessage: error.message });
     });
   });
 
@@ -133,34 +119,28 @@ io.on('connection', (socket) => {
             });
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          io.to(socket.id).emit('lobby', { action: 'fail', failMessage: error.message });
         });
         break;
       case 'startGame':
         Pregame.startGame(socket.id).then((result) => {
-          if (result.action === 'fail') {
-            io.to(socket.id).emit('lobby', {
-              action: 'fail',
-              failMessage: result.failMessage,
-            });
-          } else {
-            io.to(result.sessionID).emit('lobby', {
-              action: result.action,
-            });
-            io.to(result.sessionID).emit('inGame', {
-              action: 'begin',
-              playerIDs: result.playerIDs,
-            });
+          io.to(result.sessionID).emit('lobby', {
+            action: result.action,
+          });
+          io.to(result.sessionID).emit('inGame', {
+            action: result.action,
+            playerIDs: result.playerIDs,
+          });
 
-            for (let i = 0; i < result.spySockets.length; i += 1) {
-              io.to(result.spySockets[i]).emit('inGame', {
-                action: 'setSpy',
-                spies: result.spies,
-              });
-            }
+          for (let i = 0; i < result.spySocketIDs.length; i += 1) {
+            io.to(result.spySocketIDs[i]).emit('inGame', {
+              action: 'youAreSpy',
+              spies: result.spies,
+            });
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          console.log(error);
+          io.to(socket.id).emit('lobby', { action: 'fail', failMessage: error.message });
         });
         break;
       default:
@@ -170,29 +150,36 @@ io.on('connection', (socket) => {
   });
 
   socket.on('inGame', (fields) => {
-    console.log('inGame fields: ', fields);
     switch (fields.action) {
       case 'factionViewed':
-        Ingame.heardFrom(socket.id).then((result) => {
-          console.log('heardFrom result: ', result);
-          // io.to(result.sessionID).emit('inGame', {
-          //   action: 'waitingFor',
-          //   waitingFor: result.waitingFor,
-          // });
-          if (result.message === 'everyoneJoined') {
+        Ingame.factionViewed(socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'everyoneViewedFaction') {
             io.to(result.sessionID).emit('inGame', {
-              action: 'everyoneJoined',
-              currentLeaderIndex: result.currentLeaderIndex,
+              action: result.action,
+              currentLeaderID: result.currentLeaderID,
               currentMission: result.currentMission,
-              currentRound: result.currentRound,
               missionSize: result.missionSize,
-            });
-          } else {
-            io.to(result.sessionID).emit('inGame', {
-              action: 'waitingFor',
-              waitingFor: result.waitingFor,
+              currentRound: result.currentRound,
             });
           }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'proposeTeam':
+        Ingame.proposeTeam(fields, socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: result.action,
+            proposedTeam: result.proposedTeam,
+          });
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
         });
         break;
       default:
@@ -207,4 +194,20 @@ io.on('connection', (socket) => {
     });
   });
   // socket.on('postGame')...
+
+  socket.on('disconnect', () => {
+    Pregame.handleDisconnection(socket.id).then((result) => {
+      // only emit to the other players if necessary
+      // TODO: update protocol accordingly...
+      if (result.playerIDs !== null) {
+        io.to(result.sessionID).emit(result.event, {
+          action: 'someoneQuit',
+          playerIDs: result.playerIDs,
+          creatorID: result.creatorID,
+        });
+      }
+    }).catch((error) => {
+      console.log(error);
+    });
+  });
 });
