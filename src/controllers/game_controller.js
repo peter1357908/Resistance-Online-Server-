@@ -42,6 +42,43 @@ const newMission = (sessionID) => {
     .catch((error) => { throw error; });
 };
 
+const newRound = (sessionID) => {
+  let gameBeforeSave;
+  let roundAfterSave;
+  let missionAfterSave;
+  return Game.findOne({ sessionID })
+    .then((foundGame) => {
+      gameBeforeSave = foundGame;
+      const round = new Round();
+      round.currentLeaderID = foundGame.playerIDs[foundGame.currentLeaderIndex + 1];
+      return round.save();
+    })
+    .then((savedNewRound) => {
+      roundAfterSave = savedNewRound;
+      Mission.findById(gameBeforeSave.missions[gameBeforeSave.currentMissionIndex]);
+    })
+    .then((foundCurrentMission) => {
+      foundCurrentMission.rounds.push(roundAfterSave._id);
+      return foundCurrentMission.save();
+    })
+    .then((savedCurrentMission) => {
+      missionAfterSave = savedCurrentMission;
+      gameBeforeSave.currentRoundIndex += 1;
+      gameBeforeSave.currentLeaderIndex += 1;
+      return gameBeforeSave.save();
+    })
+    .then((savedGame) => {
+      return {
+        sessionID: savedGame.sessionID,
+        currentLeaderID: savedGame.playerIDs[savedGame.currentLeaderIndex],
+        currentMissionIndex: savedGame.currentMissionIndex,
+        currentRoundIndex: savedGame.currentRoundIndex,
+        missionSize: missionAfterSave.missionSize,
+      };
+    })
+    .catch((error) => { throw error; });
+};
+
 // returns null if waitingFor did not change
 // otherwise, returns the number of players still waiting.
 // waitingFor will be "refilled" when no more players are waiting

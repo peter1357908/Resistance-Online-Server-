@@ -243,24 +243,28 @@ client sends to the server on the event `inGame` after user finalizes on the vot
 ```
 
 If the vote came from someone who has not cast a vote yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
+```
 {
     action: 'waitingFor',
     waitingFor: [String], // playerIDs
 }
+```
 
 Once the last vote is received, the server broadcasts to the room `sessionID` on event `inGame`:
+```
 {
     action: 'roundVotes',
-    voteComposition: { playerID: voteType } // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
+    voteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
     voteResult: String, // Either APPROVE or REJECT, depending on which gets the majority (tie goes to reject)
-    currentRound: Integer // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    concludedRound: Integer, // what round we are on NOW (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
+```
 
 If this was this fifth round that just failed, the server broadcasts to the room `sessionID` on event `inGame`:
 ```
 {
     action: 'tooManyRounds',
-    currentMission: Integer, // integer from 1 to 5
+    failedMission: Integer, // integer from 1 to 5
 }
 ```
 
@@ -296,6 +300,7 @@ Else (the team proposal was rejected):
     action: 'teamSelectionStarting',
     currentLeaderID: String, // PlayerID
     currentMission: Integer, // expecting an integer between 1 and 5, inclusive
+    currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
 ```
 
@@ -320,9 +325,9 @@ After everyone voted, the server broadcasts the following message to the room `s
 ```
 {
     action: 'missionVotes',
-    currentMission: Integer // what mission we were on, 1-5
-    missionOutcome: String // either 'SUCCEEDED' OR 'FAILED'
-    numFailVotes: Integer // how many fail votes were received
+    currentMission: Integer, // what mission we were on, 1-5
+    missionOutcome: String, // either 'SUCCEEDED' OR 'FAILED'
+    numFailVotes: Integer, // how many fail votes were received
 }
 ```
 
@@ -332,6 +337,7 @@ After everyone voted, the server broadcasts the following message to the room `s
     action: 'teamSelectionStarting',
     currentLeaderID: String,
     currentMission: Integer,
+    currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
 ```
 

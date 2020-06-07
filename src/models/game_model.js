@@ -14,7 +14,7 @@ const GameSchema = new Schema({
 
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
   currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission().
-  currentRoundIndex: Number,
+  currentRoundIndex: Number, // TODO: currently redundant - same as currentLeaderIndex
 
   inLobby: Boolean,
   currentExpectedInGameAction: String,
