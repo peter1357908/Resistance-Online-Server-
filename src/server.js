@@ -194,7 +194,7 @@ io.on('connection', (socket) => {
             });
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error });
         });
         break;
       case 'proposeTeam':
@@ -206,7 +206,7 @@ io.on('connection', (socket) => {
             });
           }
         }).catch((error) => {
-          io.to(socket.id).emit('fail', { action: 'fail', failMessage: error });
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error });
         });
         break;
       default:
