@@ -361,6 +361,7 @@ export const votesViewed = (socketID) => {
             .then((savedGame) => {
               return {
                 action: 'missionStarting',
+                waitingFor: [],
                 playersOnMission: foundCurrentRound.proposedTeam,
               };
             })

@@ -218,8 +218,7 @@ io.on('connection', (socket) => {
               action: result.action,
               playersOnMission: result.playersOnMission,
             });
-          } else {
-            // result.action should be 'teamSelectionStarting' here
+          } else if (result.action === 'teamSelectionStarting') {
             io.to(result.sessionID).emit('inGame', {
               action: result.action,
               currentLeaderID: result.currentLeaderID,
