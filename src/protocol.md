@@ -255,7 +255,7 @@ Once the last vote is received, the server broadcasts to the room `sessionID` on
 {
     action: 'roundVotes',
     voteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
-    voteResult: String, // Either APPROVE or REJECT, depending on which gets the majority (tie goes to reject)
+    roundOutcome: String, // Either 'APPROVED' or 'REJECTED', depending on which gets the majority (confirmed with the rule: tie goes to 'REJECTED')
     concludedRound: Integer, // what round we are on NOW (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
 ```
@@ -294,7 +294,7 @@ If the team proposal was approved:
 }
 ```
 
-Else (the team proposal was rejected):
+Else (the team proposal was rejected, and the mission possibly failed due to too many rejected proposals):
 ```
 {
     action: 'teamSelectionStarting',
@@ -327,7 +327,7 @@ After everyone voted, the server broadcasts the following message to the room `s
     action: 'missionVotes',
     currentMission: Integer, // what mission we were on, 1-5
     missionOutcome: String, // either 'SUCCEEDED' OR 'FAILED'
-    numFailVotes: Integer, // how many fail votes were received
+    numFailVotes: Integer, // how many 'FAIL' votes were received
 }
 ```
 

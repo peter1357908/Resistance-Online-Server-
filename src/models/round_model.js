@@ -4,11 +4,8 @@ const RoundSchema = new Schema({
   currentLeaderID: String,
   proposedTeam: [String], // an array of playerIDs
   // TODO: keep track of who voted what for who goes on the mission
-  votes: [{
-    playerID: String,
-    voteType: String, // 'APPROVE' or 'REJECT'
-  }],
-  proposalOutcome: String, // `APPROVED`, `REJECTED`
+  voteByPlayerIndex: [String], // 'APPROVE' or 'REJECT' by index into the playerIDs; needs to initialized to be the same size as playerIDs, with 'TBD' as each entry
+  roundOutcome: String, // `APPROVED`, `REJECTED`
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

@@ -183,7 +183,8 @@ io.on('connection', (socket) => {
         });
         break;
       case 'voteOnTeamProposal':
-        Ingame.voteOnTeamProposal(socket.id).then((result) => {
+        Ingame.voteOnTeamProposal(fields, socket.id).then((result) => {
+          console.log(result);
           io.to(result.sessionID).emit('inGame', {
             action: 'waitingFor',
             waitingFor: result.waitingFor,
@@ -192,14 +193,14 @@ io.on('connection', (socket) => {
             io.to(result.sessionID).emit('inGame', {
               action: result.action,
               voteComposition: result.voteComposition,
-              voteResult: result.voteResult,
-              currentRound: result.currentRound,
+              roundOutcome: result.roundOutcome,
+              concludedRound: result.concludedRound,
             });
           }
-          if (result.action === 'tooManyRounds') {
+          if (result.failedMission !== null) {
             io.to(result.sessionID).emit('inGame', {
-              action: result.action,
-              currentMission: result.currentMission,
+              action: 'tooManyRounds',
+              failedMission: result.failedMission,
             });
           }
         }).catch((error) => {
