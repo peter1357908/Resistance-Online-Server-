@@ -187,12 +187,13 @@ once server receives a client's request, check to see if the `waitingFor` array 
 ```
 
 Once the server has received a 'factionViewed' action from the last client, it broadcasts to all the clients on the event `inGame`:
+// TODO: merge this with 'teamSelectionStarting'
 {
-    action: 'everyoneViewedFaction'
-    currentLeaderID: String // the playerID of the current leader
-    currentMission: Integer // from 1-5
-    missionSize: Integer // how many players are needed on the current mission
-    currentRound: Integer // 1-5
+    action: 'everyoneViewedFaction',
+    currentLeaderID: String, // the playerID of the current leader
+    currentMission: Integer, // from 1-5
+    currentRound: Integer, // 1-5
+    missionSize: Integer, // how many players are needed on the current mission
 }
 
 ## ROUND LEADER CLICKS ON CARD
@@ -301,6 +302,7 @@ Else (the team proposal was rejected, and the mission possibly failed due to too
     currentLeaderID: String, // PlayerID
     currentMission: Integer, // expecting an integer between 1 and 5, inclusive
     currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    missionSize: Integer, // how many players are needed on the current mission
 }
 ```
 
@@ -338,6 +340,7 @@ After everyone voted, the server broadcasts the following message to the room `s
     currentLeaderID: String,
     currentMission: Integer,
     currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    missionSize: Integer, // how many players are needed on the current mission
 }
 ```
 

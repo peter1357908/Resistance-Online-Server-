@@ -6,19 +6,16 @@ import MissionSizes from '../resources/mission_sizes';
 
 // --------------------------------------------------------------------------
 // Helper Functions
-const newMission = (sessionID) => {
-  let gameBeforeSave;
+// IMPORTANT: newMission() will modify and save the input `gameBeforeSave`!
+// (including setting its currentExpectedInGameAction as 'proposeTeam'!)
+const newMission = (gameBeforeSave) => {
   let missionAfterSave;
-  return Game.findOne({ sessionID })
-    .then((foundGame) => {
-      gameBeforeSave = foundGame;
-      const round = new Round();
-      [round.currentLeaderID] = foundGame.playerIDs;
-      for (let i = 0; i < foundGame.playerIDs.length; i += 1) {
-        round.voteByPlayerIndex.push('TBD');
-      }
-      return round.save();
-    })
+  const round = new Round();
+  [round.currentLeaderID] = gameBeforeSave.playerIDs;
+  for (let i = 0; i < gameBeforeSave.playerIDs.length; i += 1) {
+    round.voteByPlayerIndex.push('TBD');
+  }
+  return round.save()
     .then((savedNewRound) => {
       const mission = new Mission();
       mission.missionSize = MissionSizes[gameBeforeSave.playerIDs.length][gameBeforeSave.currentMissionIndex + 1];
@@ -34,6 +31,7 @@ const newMission = (sessionID) => {
       gameBeforeSave.currentRoundIndex = 0;
       gameBeforeSave.currentLeaderIndex = 0;
       gameBeforeSave.missions.push(savedNewMission._id);
+      gameBeforeSave.currentExpectedInGameAction = 'proposeTeam';
       return gameBeforeSave.save();
     })
     .then((savedGame) => {
@@ -48,19 +46,17 @@ const newMission = (sessionID) => {
     .catch((error) => { throw error; });
 };
 
-const newRound = (sessionID) => {
-  let gameBeforeSave;
+// IMPORTANT: newRound() will modify and save the input `gameBeforeSave`!
+// (including setting its currentExpectedInGameAction as 'proposeTeam'!)
+const newRound = (gameBeforeSave) => {
   let roundAfterSave;
-  return Game.findOne({ sessionID })
-    .then((foundGame) => {
-      gameBeforeSave = foundGame;
-      const round = new Round();
-      round.currentLeaderID = foundGame.playerIDs[foundGame.currentLeaderIndex + 1];
-      for (let i = 0; i < foundGame.playerIDs.length; i += 1) {
-        round.voteByPlayerIndex.push('TBD');
-      }
-      return round.save();
-    })
+  let missionAfterSave;
+  const round = new Round();
+  round.currentLeaderID = gameBeforeSave.playerIDs[gameBeforeSave.currentLeaderIndex + 1];
+  for (let i = 0; i < gameBeforeSave.playerIDs.length; i += 1) {
+    round.voteByPlayerIndex.push('TBD');
+  }
+  return round.save()
     .then((savedNewRound) => {
       roundAfterSave = savedNewRound;
       return Mission.findById(gameBeforeSave.missions[gameBeforeSave.currentMissionIndex]);
@@ -70,6 +66,7 @@ const newRound = (sessionID) => {
       return foundCurrentMission.save();
     })
     .then((savedCurrentMission) => {
+      missionAfterSave = savedCurrentMission;
       gameBeforeSave.currentRoundIndex += 1;
       gameBeforeSave.currentLeaderIndex += 1;
       return gameBeforeSave.save();
@@ -78,7 +75,9 @@ const newRound = (sessionID) => {
       return {
         sessionID: savedGame.sessionID,
         currentLeaderID: savedGame.playerIDs[savedGame.currentLeaderIndex],
+        currentMissionIndex: savedGame.currentMissionIndex,
         currentRoundIndex: savedGame.currentRoundIndex,
+        missionSize: missionAfterSave.missionSize,
       };
     })
     .catch((error) => { throw error; });
@@ -117,14 +116,11 @@ export const factionViewed = (socketID) => {
     })
     .then((foundGame) => {
       if (foundGame === null || foundGame.currentExpectedInGameAction !== 'factionViewed') {
-        throw new Error('You must have bypassed the front-end to try announcing that you viewed faction at the wrong time... Nice try.');
+        throw new Error('You must have bypassed the front-end to try announcing that you viewed faction without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(annoucingPlayer.playerID, foundGame);
       if (numCurrentlyWaiting === null) {
         throw new Error('You must have bypassed the front-end to try announcing that you viewed faction after already annoucing once... Nice try.');
-      }
-      if (numCurrentlyWaiting === 0) {
-        foundGame.currentExpectedInGameAction = 'proposeTeam';
       }
       return foundGame.save();
     })
@@ -136,7 +132,7 @@ export const factionViewed = (socketID) => {
           waitingFor: savedGame.waitingFor,
         };
       } else {
-        return newMission(savedGame.sessionID)
+        return newMission(savedGame)
           .then((newMissionInfo) => {
             return {
               action: 'everyoneViewedFaction',
@@ -144,8 +140,8 @@ export const factionViewed = (socketID) => {
               sessionID: newMissionInfo.sessionID,
               currentLeaderID: newMissionInfo.currentLeaderID,
               currentMission: newMissionInfo.currentMissionIndex + 1,
-              missionSize: newMissionInfo.missionSize,
               currentRound: newMissionInfo.currentRoundIndex + 1,
+              missionSize: newMissionInfo.missionSize,
             };
           })
           .catch((error) => { throw error; });
@@ -160,18 +156,22 @@ export const proposeTeam = (fields, socketID) => {
   let roundAfterSave;
   return Player.findOne({ socketID })
     .then((foundPlayer) => {
+      if (foundPlayer === null) {
+        throw new Error('You must have bypassed the front-end to try proposing a team without being a player... Nice try.');
+      }
       proposingPlayer = foundPlayer;
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame.currentExpectedInGameAction !== 'proposeTeam'
+      if (foundGame === null
+        || foundGame.currentExpectedInGameAction !== 'proposeTeam'
         || foundGame.playerIDs[foundGame.currentLeaderIndex] !== proposingPlayer.playerID) {
-        throw new Error('You must have bypassed the front-end to propose a team without being asked to... Nice try.');
+        throw new Error('You must have bypassed the front-end to try proposing a team without being asked to... Nice try.');
       }
 
       for (let i = 0; i < fields.proposedTeam.length; i += 1) {
         if (!foundGame.playerIDs.includes(fields.proposedTeam[i])) {
-          throw new Error('You must have bypassed the front-end to propose a team with some made-up players... Nice try.');
+          throw new Error('You must have bypassed the front-end to try proposing a team with some made-up players... Nice try.');
         }
       }
       gameBeforeSave = foundGame;
@@ -221,7 +221,7 @@ export const voteOnTeamProposal = (fields, socketID) => {
     })
     .then((foundGame) => {
       if (foundGame === null || foundGame.currentExpectedInGameAction !== 'voteOnTeamProposal') {
-        throw new Error('You must have bypassed the front-end to try voting on team proposal at the wrong time... Nice try.');
+        throw new Error('You must have bypassed the front-end to try voting on team proposal without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(votingPlayer.playerID, foundGame);
       if (numCurrentlyWaiting === null) {
@@ -288,6 +288,95 @@ export const voteOnTeamProposal = (fields, socketID) => {
           concludedRound: gameAfterSave.currentRoundIndex + 1,
           failedMission,
         };
+      }
+    })
+    .catch((error) => { throw error; });
+};
+
+export const votesViewed = (socketID) => {
+  let annoucingPlayer;
+  let numCurrentlyWaiting;
+  let gameBeforeSave;
+  return Player.findOne({ socketID })
+    .then((foundPlayer) => {
+      if (foundPlayer === null) {
+        throw new Error('You must have bypassed the front-end to try announcing that you viewed votes without being a player... Nice try.');
+      }
+      annoucingPlayer = foundPlayer;
+      return Game.findOne({ sessionID: foundPlayer.sessionID });
+    })
+    .then((foundGame) => {
+      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'votesViewed') {
+        throw new Error('You must have bypassed the front-end to try announcing that you viewed votes without being asked to... Nice try.');
+      }
+      numCurrentlyWaiting = updateWaitingFor(annoucingPlayer.playerID, foundGame);
+      if (numCurrentlyWaiting === null) {
+        throw new Error('You must have bypassed the front-end to try announcing that you viewed votes after already annoucing once... Nice try.');
+      }
+
+      gameBeforeSave = foundGame;
+      return Mission.findById(foundGame.missions[foundGame.currentMissionIndex]);
+    })
+    .then((foundCurrentMission) => {
+      return Round.findById(foundCurrentMission.rounds[gameBeforeSave.currentRoundIndex]);
+    })
+    .then((foundCurrentRound) => {
+      if (numCurrentlyWaiting === 0) {
+        if (foundCurrentRound.roundOutcome === 'REJECTED') {
+          // last proposal was rejected; go into another round of the current mission or the first round of the next mission
+          // TODO: no magic numbers
+          if (gameBeforeSave.currentRoundIndex >= 4) {
+            return newMission(gameBeforeSave)
+              .then((newMissionInfo) => {
+                return {
+                  action: 'teamSelectionStarting',
+                  waitingFor: [],
+                  sessionID: newMissionInfo.sessionID,
+                  currentLeaderID: newMissionInfo.currentLeaderID,
+                  currentMission: newMissionInfo.currentMissionIndex + 1,
+                  currentRound: newMissionInfo.currentRoundIndex + 1,
+                  missionSize: newMissionInfo.missionSize,
+                };
+              })
+              .catch((error) => { throw error; });
+          } else {
+            return newRound(gameBeforeSave)
+              .then((newRoundInfo) => {
+                return {
+                  action: 'teamSelectionStarting',
+                  waitingFor: [],
+                  sessionID: newRoundInfo.sessionID,
+                  currentLeaderID: newRoundInfo.currentLeaderID,
+                  currentMission: newRoundInfo.currentMissionIndex + 1,
+                  currentRound: newRoundInfo.currentRoundIndex + 1,
+                  missionSize: newRoundInfo.missionSize,
+                };
+              })
+              .catch((error) => { throw error; });
+          }
+        } else {
+          // last proposal was approved; go into the current mission
+          gameBeforeSave.currentExpectedInGameAction = 'voteOnMissionOutcome';
+          return gameBeforeSave.save()
+            .then((savedGame) => {
+              return {
+                action: 'missionStarting',
+                playersOnMission: foundCurrentRound.proposedTeam,
+              };
+            })
+            .catch((error) => { throw error; });
+        }
+      } else {
+        // still waiting for some players
+        return gameBeforeSave.save()
+          .then((savedGame) => {
+            return {
+              action: 'waitingFor',
+              sessionID: savedGame.sessionID,
+              waitingFor: savedGame.waitingFor,
+            };
+          })
+          .catch((error) => { throw error; });
       }
     })
     .catch((error) => { throw error; });

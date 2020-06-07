@@ -162,8 +162,8 @@ io.on('connection', (socket) => {
               action: result.action,
               currentLeaderID: result.currentLeaderID,
               currentMission: result.currentMission,
-              missionSize: result.missionSize,
               currentRound: result.currentRound,
+              missionSize: result.missionSize,
             });
           }
         }).catch((error) => {
@@ -201,6 +201,32 @@ io.on('connection', (socket) => {
                 failedMission: result.failedMission,
               });
             }
+          }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'votesViewed':
+        Ingame.votesViewed(socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'missionStarting') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              playersOnMission: result.playersOnMission,
+            });
+          } else {
+            // result.action should be 'teamSelectionStarting' here
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              currentLeaderID: result.currentLeaderID,
+              currentMission: result.currentMission,
+              currentRound: result.currentRound,
+              missionSize: result.missionSize,
+            });
           }
         }).catch((error) => {
           console.log(error);
