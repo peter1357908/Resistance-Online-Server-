@@ -5,15 +5,16 @@ const GameSchema = new Schema({
   password: String,
   creatorID: String,
 
-  players: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  playerIDs: [String],
   currentLeaderIndex: Number,
-  waitingFor: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
-  spies: [{ type: Schema.Types.ObjectId, ref: 'Player' }],
+  waitingFor: [String], // playerIDs
+  spies: [String], // playerIDs
   // waitingForIndex: [Number],
   // spiesIndex: [Number],
 
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
-  currentMissionIndex: Number,
+  currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission().
+  currentRoundIndex: Number,
 
   inLobby: Boolean,
   currentExpectedInGameAction: String,

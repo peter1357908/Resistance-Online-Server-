@@ -151,7 +151,7 @@ Then, server broadcasts to the room `sessionID` on the event `lobby`:
 Server broadcasts to the room `sessionID` on the event `inGame`:
 ```
 {
-    action: 'begin',
+    action: 'gameStarted',
     playerIDs: [String],
 }
 ```
@@ -159,12 +159,12 @@ Server broadcasts to the room `sessionID` on the event `inGame`:
 Server also sends, to **the spies only**, on the event `inGame`:
 ```
 {
-    action: 'setSpy',
+    action: 'youAreSpy',
     spies: [String],
 }
 ```
 
-Each client should assume that their faction is `RESISTANCE` unless they receive the above message with action `setSpy`.
+Each client should assume that their faction is `RESISTANCE` unless they receive the above message with action `youAreSpy`.
 
 Note that the front end should assume that the first playerID in the playerIDs is the leader for the first round of the first mission.
 
@@ -188,11 +188,11 @@ once server receives a client's request, check to see if the `waitingFor` array 
 
 Once the server has received a 'factionViewed' action from the last client, it broadcasts to all the clients on the event `inGame`:
 {
-    action: 'everyoneJoined'
+    action: 'everyoneViewedFaction'
     currentLeaderID: String // the playerID of the current leader
-    currentMission: Integer // it appears that the backend is sending an integer ranging from 0 to 4
+    currentMission: Integer // from 1-5
     missionSize: Integer // how many players are needed on the current mission
-    currentRound: Integer 
+    currentRound: Integer // 1-5
 }
 
 ## ROUND LEADER CLICKS ON CARD
@@ -253,14 +253,14 @@ Once the last vote is received, the server broadcasts to the room `sessionID` on
     action: 'roundVotes',
     voteComposition: { playerID: voteType } // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
     voteResult: String, // Either APPROVE or REJECT, depending on which gets the majority (tie goes to reject)
-    round: Integer // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    currentRound: Integer // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
 
 If this was this fifth round that just failed, the server broadcasts to the room `sessionID` on event `inGame`:
 ```
 {
     action: 'tooManyRounds',
-    missionNumber: Integer, // integer from 1 to 5
+    currentMission: Integer, // integer from 1 to 5
 }
 ```
 
@@ -320,7 +320,7 @@ After everyone voted, the server broadcasts the following message to the room `s
 ```
 {
     action: 'missionVotes',
-    missionNumber: Integer // what mission we were on
+    currentMission: Integer // what mission we were on, 1-5
     missionOutcome: String // either 'SUCCEEDED' OR 'FAILED'
     numFailVotes: Integer // how many fail votes were received
 }
@@ -418,7 +418,7 @@ if the client is an existing player, broadcast to the corresponding `sessionID` 
 
 ## TODOs
 * refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
-* refactor the `setSpy` procedure to be less ambiguous (e.g. by sending also `setResistance`)
+* refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
 * handle unexpected disconnections (replace player with AI, remove player from lobby upon disconnection, etc.)
 * make it so that the player join the game with a random name, and is allowed to change it in the lobby at will, until the game starts
 * rename the `creator` status to be `lobby master` status
