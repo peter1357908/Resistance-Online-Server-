@@ -1,10 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 
 const MissionSchema = new Schema({
-  missionTeam: [String], // an array of playerIDs
+  missionTeam: [String], // an array of playerIDs; redundant info because this can be inferred from the last round
   rounds: [{ type: Schema.Types.ObjectId, ref: 'Round' }],
   missionSize: Number,
-  // TODO: keep track of who voted what for who goes on the mission
   voteByPlayerIndex: [String], // 'SUCCESS' or 'FAIL' by index into the playerIDs; needs to initialized to be the same size as playerIDs, with 'TBD' as each entry
   missionOutcome: String, // 'SUCCESS' or 'FAIL'
 }, {

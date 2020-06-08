@@ -196,12 +196,6 @@ io.on('connection', (socket) => {
               roundOutcome: result.roundOutcome,
               concludedRound: result.concludedRound,
             });
-            if (result.failedMission !== null) {
-              io.to(result.sessionID).emit('inGame', {
-                action: 'tooManyRounds',
-                failedMission: result.failedMission,
-              });
-            }
           }
         }).catch((error) => {
           console.log(error);
@@ -227,6 +221,53 @@ io.on('connection', (socket) => {
               currentRound: result.currentRound,
               missionSize: result.missionSize,
             });
+          } else if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+            io.to(result.sessionID).emit('inGame', {
+              action: 'gameFinished',
+              victoriousFaction: result.victoriousFaction,
+            });
+            io.to(result.sessionID).emit('postGame', {
+              action: 'gameHistory',
+              victoriousFaction: result.victoriousFaction,
+              gameHistory: result.gameHistory,
+            });
+          }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'voteOnMissionOutcome':
+        Ingame.voteOnMissionOutcome(fields, socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'missionVotes') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              numFailVotes: result.numFailVotes,
+              missionOutcome: result.missionOutcome,
+              concludedMission: result.concludedMission,
+            });
+            io.to(result.sessionID).emit('inGame', {
+              action: 'teamSelectionStarting',
+              currentLeaderID: result.currentLeaderID,
+              currentMission: result.currentMission,
+              currentRound: result.currentRound,
+              missionSize: result.missionSize,
+            });
+            if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+              io.to(result.sessionID).emit('inGame', {
+                action: 'gameFinished',
+                victoriousFaction: result.victoriousFaction,
+              });
+              io.to(result.sessionID).emit('postGame', {
+                action: 'gameHistory',
+                victoriousFaction: result.victoriousFaction,
+                gameHistory: result.gameHistory,
+              });
+            }
           }
         }).catch((error) => {
           console.log(error);

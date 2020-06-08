@@ -297,6 +297,7 @@ export const voteOnTeamProposal = (fields, socketID) => {
 export const votesViewed = (socketID) => {
   let annoucingPlayer;
   let numCurrentlyWaiting;
+  let missionBeforeSave;
   let gameBeforeSave;
   return Player.findOne({ socketID })
     .then((foundPlayer) => {
@@ -319,16 +320,22 @@ export const votesViewed = (socketID) => {
       return Mission.findById(foundGame.missions[foundGame.currentMissionIndex]);
     })
     .then((foundCurrentMission) => {
+      missionBeforeSave = foundCurrentMission;
       return Round.findById(foundCurrentMission.rounds[gameBeforeSave.currentRoundIndex]);
     })
     .then((foundCurrentRound) => {
       if (numCurrentlyWaiting === 0) {
         if (foundCurrentRound.roundOutcome === 'REJECTED') {
-          // last proposal was rejected; go into another round of the current mission or the first round of the next mission
+          // current proposal was rejected; go into another round of the current mission or the first round of the next mission
           // TODO: no magic numbers
           if (gameBeforeSave.currentRoundIndex >= 4) {
-            // TODO: save the game and handle game end
-            return null;
+            gameBeforeSave.victoriousFaction = 'SPY';
+            return gameBeforeSave.save()
+              .then((savedGame) => {
+                // TODO: handle game end
+                return null;
+              })
+              .catch((error) => { throw error; });
           } else {
             return newRound(gameBeforeSave)
               .then((newRoundInfo) => {
@@ -345,18 +352,142 @@ export const votesViewed = (socketID) => {
               .catch((error) => { throw error; });
           }
         } else {
-          // last proposal was approved; go into the current mission
-          gameBeforeSave.currentExpectedInGameAction = 'voteOnMissionOutcome';
-          return gameBeforeSave.save()
+          // current proposal was approved; go into the current mission
+          // slice(0) may not be necessary...
+          missionBeforeSave.missionTeam = foundCurrentRound.proposedTeam.slice(0);
+          return missionBeforeSave.save()
+            .then((savedMission) => {
+              gameBeforeSave.currentExpectedInGameAction = 'voteOnMissionOutcome';
+              return gameBeforeSave.save();
+            })
             .then((savedGame) => {
               return {
                 action: 'missionStarting',
+                sessionID: savedGame.sessionID,
                 waitingFor: [],
-                playersOnMission: foundCurrentRound.proposedTeam,
+                playersOnMission: foundCurrentRound.proposedTeam, // ideally, this should be savedMission.missionTeam...
               };
             })
             .catch((error) => { throw error; });
         }
+      } else {
+        // still waiting for some players
+        return gameBeforeSave.save()
+          .then((savedGame) => {
+            return {
+              action: 'waitingFor',
+              sessionID: savedGame.sessionID,
+              waitingFor: savedGame.waitingFor,
+            };
+          })
+          .catch((error) => { throw error; });
+      }
+    })
+    .catch((error) => { throw error; });
+};
+
+export const voteOnMissionOutcome = (fields, socketID) => {
+  let votingPlayer;
+  let numCurrentlyWaiting;
+  let gameBeforeSave;
+  let numFailVotes = 0;
+  let missionOutcome = 'SUCCESS';
+  if (fields.voteType !== 'SUCCESS' && fields.voteType !== 'FAIL') {
+    return new Promise((resolve, reject) => {
+      reject(new Error('You must have bypassed the front-end to try sending a bad vote for mission outcome... Nice try.'));
+    });
+  }
+
+  return Player.findOne({ socketID })
+    .then((foundPlayer) => {
+      if (foundPlayer === null) {
+        throw new Error('You must have bypassed the front-end to try voting on mission outcome without being a player... Nice try.');
+      }
+      votingPlayer = foundPlayer;
+      return Game.findOne({ sessionID: foundPlayer.sessionID });
+    })
+    .then((foundGame) => {
+      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'voteOnMissionOutcome') {
+        throw new Error('You must have bypassed the front-end to try voting on mission outcome without being asked to... Nice try.');
+      }
+      numCurrentlyWaiting = updateWaitingFor(votingPlayer.playerID, foundGame);
+      if (numCurrentlyWaiting === null) {
+        throw new Error('You must have bypassed the front-end to try voting on mission outcome after already voting once... Nice try.');
+      }
+
+      gameBeforeSave = foundGame;
+
+      return Mission.findById(foundGame.missions[foundGame.currentMissionIndex]);
+    })
+    .then((foundCurrentMission) => {
+      foundCurrentMission.voteByPlayerIndex.set(gameBeforeSave.playerIDs.indexOf(votingPlayer.playerID), fields.voteType);
+      if (numCurrentlyWaiting === 0) {
+        // all votes are cast; check if the missionOutcome should be 'SUCCESS' or 'FAIL'
+        for (let i = 0; i < foundCurrentMission.voteByPlayerIndex.length; i += 1) {
+          if (foundCurrentMission.voteByPlayerIndex[i] === 'FAIL') {
+            numFailVotes += 1;
+          }
+        }
+        if (numFailVotes > 0) {
+          missionOutcome = 'FAIL';
+        }
+
+        foundCurrentMission.missionOutcome = missionOutcome;
+      }
+      return foundCurrentMission.save();
+    })
+    .then((savedCurrentMission) => {
+      if (numCurrentlyWaiting === 0) {
+        // go into the first round of the next mission or make the game end
+        // first check if the game should end
+        return gameBeforeSave.populate('missions', 'missionOutcome').execPopulate()
+          .then((gameWithPopulatedMissions) => {
+            let numFailedMissions = 0;
+            let numSucceededMissions = 0;
+            for (let i = 0; i < gameWithPopulatedMissions.missions.length; i += 1) {
+              if (gameWithPopulatedMissions.missions[i] === 'SUCCESS') {
+                numSucceededMissions += 1;
+              } else {
+                numFailedMissions += 1;
+              }
+            }
+            let victoriousFaction = null;
+            if (numFailedMissions >= 3) {
+              victoriousFaction = 'SPY';
+            } else if (numSucceededMissions >= 3) {
+              victoriousFaction = 'RESISTANCE';
+            }
+
+            if (victoriousFaction !== null) {
+              // the game SHOULD end
+              gameBeforeSave.currentExpectedInGameAction = 'finishViewingGameHistory';
+              return gameBeforeSave.save()
+                .then((savedGame) => {
+                  // TODO: handle game end
+                  return null;
+                })
+                .catch((error) => { throw error; });
+            } else {
+              // the game SHOULD NOT end; go into the first round of next mission:
+              return newMission(gameBeforeSave)
+                .then((newMissionInfo) => {
+                  return {
+                    action: 'missionVotes',
+                    sessionID: newMissionInfo.sessionID,
+                    waitingFor: [],
+                    numFailVotes,
+                    missionOutcome,
+                    concludedMission: newMissionInfo.currentMissionIndex,
+                    currentLeaderID: newMissionInfo.currentLeaderID,
+                    currentMission: newMissionInfo.currentMissionIndex + 1,
+                    currentRound: newMissionInfo.currentRoundIndex + 1,
+                    missionSize: newMissionInfo.missionSize,
+                  };
+                })
+                .catch((error) => { throw error; });
+            }
+          })
+          .catch((error) => { throw error; });
       } else {
         // still waiting for some players
         return gameBeforeSave.save()

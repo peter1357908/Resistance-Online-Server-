@@ -194,7 +194,7 @@ once server receives a client's request, check to see if the `waitingFor` array 
 ```
 
 Once the server has received a 'factionViewed' action from the last client, it broadcasts to all the clients on the event `inGame`:
-// TODO: merge this with 'teamSelectionStarting'
+```
 {
     action: 'everyoneViewedFaction',
     currentLeaderID: String, // the playerID of the current leader
@@ -202,6 +202,7 @@ Once the server has received a 'factionViewed' action from the last client, it b
     currentRound: Integer, // 1-5
     missionSize: Integer, // how many players are needed on the current mission
 }
+```
 
 ## ROUND LEADER CLICKS ON CARD
 client sends to the server on the event `inGame`:
@@ -338,9 +339,9 @@ After everyone voted, the server broadcasts the following message to the room `s
 ```
 {
     action: 'missionVotes',
-    currentMission: Integer, // what mission we were on, 1-5
-    missionOutcome: String, // either 'SUCCEEDED' OR 'FAILED'
     numFailVotes: Integer, // how many 'FAIL' votes were received
+    missionOutcome: String, // either 'SUCCEEDED' OR 'FAILED'
+    concludedMission: Integer, // what mission we were on, 1-5
 }
 ```
 
@@ -362,6 +363,7 @@ The server sends to `sessionID` on event `inGame`:
 ```
 {
     action: 'gameFinished',
+    victoriousFaction: String, // 'RESISTANCE' or 'SPY' (redundant information; the outcome can be determined from `gameHistory` below)
 }
 ```
 
@@ -369,7 +371,8 @@ The server sends to `socket.id` on event `postGame`:
 ```
 {
     action: 'gameHistory',
-    victoriousFaction: String, // 'RESISTANCE' or 'SPIES' (redundant information; the outcome can be determined from `gameHistory` below)
+    victoriousFaction: String, // 'RESISTANCE' or 'SPY' (redundant information; the outcome can be determined from `gameHistory` below)
+    spies: [String], // playerIDs
     gameHistory: `gameHistoryObject`, // defined below
 }
 ```
@@ -445,4 +448,5 @@ if the client is an existing player, broadcast to the corresponding `sessionID` 
 * allow reconnecting to an ongoing game after disconnecting
 * allow spectating games
 * implement a `cardHoveredOver` action to complement `cardClicked` action
+* merge 'everyoneViewedFaction' with 'teamSelectionStarting' (alternatively, distinguish between the three similar use cases by what fields are meaningful to each)
 
