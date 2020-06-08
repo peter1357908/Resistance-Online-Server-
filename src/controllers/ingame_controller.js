@@ -87,7 +87,7 @@ const newRound = (gameBeforeSave) => {
 // returns null if waitingFor did not change
 // otherwise, returns the number of players still waiting.
 // waitingFor will be "refilled" when no more players are waiting
-const updateWaitingFor = (playerID, foundGame) => {
+export const updateWaitingFor = (playerID, foundGame) => {
   // check if the waitingFor would change
   const numPreviouslyWaiting = foundGame.waitingFor.length;
   foundGame.waitingFor.pull(playerID);

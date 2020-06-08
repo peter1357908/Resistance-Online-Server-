@@ -8,7 +8,8 @@ import http from 'http';
 import mongoose from 'mongoose';
 
 import * as Pregame from './controllers/pregame_controller';
-import * as Ingame from './controllers/game_controller';
+import * as Ingame from './controllers/ingame_controller';
+import * as Postgame from './controllers/postgame_controller';
 
 // DB Setup
 const config = {
@@ -286,6 +287,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('postGame', (fields) => {
+    Postgame.finishViewingGameHistory(socket.id).then((result) => {
+      io.to(result.sessionID).emit('postGame', {
+        action: 'waitingFor',
+        waitingFor: result.waitingFor,
+      });
+    }).catch((error) => {
+      console.log(error);
+      io.to(socket.id).emit('postGame', { action: 'fail', failMessage: error.message });
+    });
+  });
+
   socket.on('chat', (fields) => {
     Ingame.newChat(socket.id, fields).then((result) => {
       io.to(result.sessionID).emit('chat', result.chatLog);
@@ -294,8 +307,6 @@ io.on('connection', (socket) => {
       io.to(socket.id).emit('chat', [{ playerID: 'The Server', message: error.message }]);
     });
   });
-
-  // socket.on('postGame')...
 
   socket.on('disconnect', () => {
     Pregame.handleDisconnection(socket.id).then((result) => {
