@@ -378,7 +378,7 @@ The server emits to `sessionID` on event `postGame`:
 ```
 {
     missionOutcome: String, // 'SUCCEEDED' or 'FAILED' (redundant information; the outcome can be determined from `missionVoteComposition` below)
-    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL')
+    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
     rounds: [`roundObject`], // `roundObject` is defined below; in the order of the rounds that took place
 }
 ```
@@ -389,6 +389,7 @@ The server emits to `sessionID` on event `postGame`:
     roundOutcome: String, // 'APPROVED' or 'REJECTED' (redundant information; the last round is the only round whose proposal was approved)
     roundVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
     roundLeader: String, // playerID of the round's leader
+    proposedTeam: [String], // playerIDs
 }
 ```
 

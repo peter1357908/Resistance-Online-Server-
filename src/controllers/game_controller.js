@@ -102,6 +102,62 @@ const updateWaitingFor = (playerID, foundGame) => {
   return numCurrentlyWaiting;
 };
 
+// returns the `gameHistoryObject` in the exact format as specified in the procotol
+const composeGameHistoryObject = (savedGame) => {
+  const gameHistoryObject = { missions: [] };
+  return savedGame.populate({
+    path: 'missions',
+    populate: { path: 'rounds' },
+  }).execPopulate()
+    .then((populatedGame) => {
+      // for each mission, make a `missionObject` and add it to `gameHistoryObject.missions`
+      for (let i = 0; i < populatedGame.missions.length; i += 1) {
+        const populatedMission = populatedGame.missions[i];
+        const missionVoteComposition = {};
+        // for each valid vote, add the playerID: voteType entry to missionVoteComposition
+        for (let j = 0; j < populatedMission.missionTeam.length; j += 1) {
+          const voter = populatedMission.missionTeam[j];
+          missionVoteComposition[voter] = populatedMission.voteByPlayerIndex[populatedGame.playerIDs.indexOf(voter)];
+          // alternatively, we can do it the way we do roundVoteComposition:
+          // const voteType = populatedMission.voteByPlayerIndex[j];
+          // if (voteType === 'SUCCESS' || voteType === 'FAIL') {
+          //   // the conditions are to avoid recording placeholders (currently 'TBD')
+          //   missionVoteComposition[populatedGame.playerIDs[j]] = voteType;
+          // }
+        }
+
+        const missionObject = {
+          missionOutcome: populatedMission.missionOutcome,
+          missionVoteComposition,
+          rounds: [],
+        };
+
+        // for each round, make a `roundObject` and add it to `missionObject.rounds`
+        for (let k = 0; k < populatedMission.rounds.length; k += 1) {
+          const populatedRound = populatedMission.rounds[k];
+
+          // for each vote, add the playerID: voteType entry to missionVoteComposition
+          const roundVoteComposition = {};
+          for (let l = 0; l < populatedRound.voteByPlayerIndex.length; l += 1) {
+            roundVoteComposition[populatedGame.playerIDs[l]] = populatedRound.voteByPlayerIndex[l];
+          }
+
+          const roundObject = {
+            roundOutcome: populatedRound.roundOutcome,
+            roundVoteComposition,
+            roundLeader: populatedRound.currentLeaderID,
+            proposedTeam: populatedRound.proposedTeam,
+          };
+
+          missionObject.rounds.push(roundObject);
+        }
+        gameHistoryObject.missions.push(missionObject);
+      }
+      return gameHistoryObject;
+    })
+    .catch((error) => { throw error; });
+};
+
 // --------------------------------------------------------------------------
 // Message Handling Functions (function name should be the same as the action it handles)
 export const factionViewed = (socketID) => {
@@ -269,7 +325,7 @@ export const voteOnTeamProposal = (fields, socketID) => {
       } else {
         // compose the voteComposition
         const voteComposition = {};
-        for (let i = 0; i < gameAfterSave.playerIDs.length; i += 1) {
+        for (let i = 0; i < savedCurrentRound.voteByPlayerIndex.length; i += 1) {
           voteComposition[gameAfterSave.playerIDs[i]] = savedCurrentRound.voteByPlayerIndex[i];
         }
 
@@ -322,10 +378,21 @@ export const votesViewed = (socketID) => {
           // TODO: no magic numbers
           if (gameBeforeSave.currentRoundIndex >= 4) {
             gameBeforeSave.victoriousFaction = 'SPY';
+            gameBeforeSave.currentExpectedInGameAction = 'finishViewingGameHistory';
             return gameBeforeSave.save()
               .then((savedGame) => {
-                // TODO: handle game end
-                return null;
+                return composeGameHistoryObject(savedGame);
+              })
+              .then((gameHistoryObject) => {
+                return {
+                  action: 'gameFinished',
+                  sessionID: gameBeforeSave.sessionID,
+                  waitingFor: [],
+
+                  victoriousFaction: 'SPY',
+                  spies: gameBeforeSave.spies,
+                  gameHistory: gameHistoryObject,
+                };
               })
               .catch((error) => { throw error; });
           } else {
@@ -455,11 +522,25 @@ export const voteOnMissionOutcome = (fields, socketID) => {
 
             if (victoriousFaction !== null) {
               // the game SHOULD end
+              gameBeforeSave.victoriousFaction = victoriousFaction;
               gameBeforeSave.currentExpectedInGameAction = 'finishViewingGameHistory';
               return gameBeforeSave.save()
                 .then((savedGame) => {
-                  // TODO: handle game end
-                  return null;
+                  return composeGameHistoryObject(savedGame);
+                })
+                .then((gameHistoryObject) => {
+                  return {
+                    action: 'missionVotes',
+                    sessionID: gameBeforeSave.sessionID,
+                    waitingFor: [],
+                    numFailVotes,
+                    missionOutcome,
+                    concludedMission: gameBeforeSave.currentMissionIndex + 1,
+
+                    victoriousFaction,
+                    spies: gameBeforeSave.spies,
+                    gameHistory: gameHistoryObject,
+                  };
                 })
                 .catch((error) => { throw error; });
             } else {

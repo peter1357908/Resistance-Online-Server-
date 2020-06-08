@@ -222,12 +222,13 @@ io.on('connection', (socket) => {
           } else if (result.action === 'gameFinished') {
             // note that here the condition is necessary because the action could have been 'waitingFor'
             io.to(result.sessionID).emit('inGame', {
-              action: 'gameFinished',
+              action: result.action,
               victoriousFaction: result.victoriousFaction,
             });
             io.to(result.sessionID).emit('postGame', {
               action: 'gameHistory',
               victoriousFaction: result.victoriousFaction,
+              spies: result.spies,
               gameHistory: result.gameHistory,
             });
           }
@@ -260,6 +261,7 @@ io.on('connection', (socket) => {
               io.to(result.sessionID).emit('postGame', {
                 action: 'gameHistory',
                 victoriousFaction: result.victoriousFaction,
+                spies: result.spies,
                 gameHistory: result.gameHistory,
               });
             } else {
@@ -287,8 +289,12 @@ io.on('connection', (socket) => {
   socket.on('chat', (fields) => {
     Ingame.newChat(socket.id, fields).then((result) => {
       io.to(result.sessionID).emit('chat', result.chatLog);
+    }).catch((error) => {
+      console.log(error);
+      io.to(socket.id).emit('chat', [{ playerID: 'The Server', message: error.message }]);
     });
   });
+
   // socket.on('postGame')...
 
   socket.on('disconnect', () => {
@@ -302,8 +308,6 @@ io.on('connection', (socket) => {
           creatorID: result.creatorID,
         });
       }
-    }).catch((error) => {
-      console.log(error);
-    });
+    }).catch((error) => { console.log(error); });
   });
 });
