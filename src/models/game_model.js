@@ -19,7 +19,7 @@ const GameSchema = new Schema({
   inLobby: Boolean,
   currentExpectedInGameAction: String,
 
-  logs: [{ playerID: String, message: String }],
+  chatLog: [{ playerID: String, message: String }],
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

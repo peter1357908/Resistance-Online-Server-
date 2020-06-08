@@ -95,6 +95,7 @@ export const joinGame = (fields, socketID) => {
         playerID: savedPlayer.playerID,
         creatorID: finalGame.creatorID,
         playerIDs: finalGame.playerIDs,
+        chatLog: finalGame.chatLog,
       };
     })
     .catch((error) => { throw error; });

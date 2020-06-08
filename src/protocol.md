@@ -75,6 +75,13 @@ Server sends to the client on the event `joinGame`:
 }
 ```
 
+Server sends to the client on the event `chat` (notice that the following it basically an array of tuples):
+```
+[
+    { playerID: String, message: String }
+]
+```
+
 server broadcasts to the room `sessionID` on the event `lobby`:
 ```
 {
@@ -429,7 +436,7 @@ if the client is an existing player, broadcast to the corresponding `sessionID` 
 * refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
 * refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
 * handle unexpected disconnections (replace player with AI, remove player from lobby upon disconnection, etc.)
-* make it so that the player join the game with a random name, and is allowed to change it in the lobby at will, until the game starts
+* make it so that the player joins the game with a random name, and is allowed to change it in the lobby at will, until the game starts
 * rename the `creator` status to be `lobby master` status
 * allow reconnecting to an ongoing game after disconnecting
 * allow spectating games

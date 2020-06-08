@@ -69,6 +69,7 @@ const newRound = (gameBeforeSave) => {
       missionAfterSave = savedCurrentMission;
       gameBeforeSave.currentRoundIndex += 1;
       gameBeforeSave.currentLeaderIndex += 1;
+      gameBeforeSave.currentExpectedInGameAction = 'proposeTeam';
       return gameBeforeSave.save();
     })
     .then((savedGame) => {
@@ -390,11 +391,11 @@ export const newChat = (socketID, fields) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      foundGame.logs.push({ playerID: fields.messageFrom, message: fields.message });
+      foundGame.chatLog.push({ playerID: fields.messageFrom, message: fields.message });
       return foundGame.save();
     })
     .then((savedGame) => {
-      return { sessionID: savedGame.sessionID, logs: savedGame.logs };
+      return { sessionID: savedGame.sessionID, chatLog: savedGame.chatLog };
     })
     .catch((error) => { throw error; });
 };

@@ -94,6 +94,7 @@ io.on('connection', (socket) => {
         playerID: result.playerID,
         sessionID: result.sessionID,
       });
+      io.to(socket.id).emit('chat', result.chatLog);
       io.to(fields.sessionID).emit('lobby', {
         action: 'someoneJoined',
         creatorID: result.creatorID,
@@ -240,7 +241,7 @@ io.on('connection', (socket) => {
 
   socket.on('chat', (fields) => {
     Ingame.newChat(socket.id, fields).then((result) => {
-      io.to(result.sessionID).emit('chat', result.logs);
+      io.to(result.sessionID).emit('chat', result.chatLog);
     });
   });
   // socket.on('postGame')...
