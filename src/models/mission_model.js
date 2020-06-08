@@ -5,7 +5,7 @@ const MissionSchema = new Schema({
   rounds: [{ type: Schema.Types.ObjectId, ref: 'Round' }],
   missionSize: Number,
   voteByPlayerIndex: [String], // 'SUCCESS' or 'FAIL' by index into the playerIDs; needs to initialized to be the same size as playerIDs, with 'TBD' as each entry
-  missionOutcome: String, // 'SUCCESS' or 'FAIL'
+  missionOutcome: String, // 'SUCCEEDED' or 'FAILED'
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

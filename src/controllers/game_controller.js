@@ -267,13 +267,6 @@ export const voteOnTeamProposal = (fields, socketID) => {
           waitingFor: gameAfterSave.waitingFor,
         };
       } else {
-        let failedMission = null; // set to be the failed mission if... a mission has failed due to 5 rejected team proposals
-        // TODO: no magic numbers
-        if (gameAfterSave.currentRoundIndex >= 4) {
-          // TODO: a bit semantically ambiguous... here we send the message, but only set the status later in votesViewed()
-          failedMission = gameAfterSave.currentMissionIndex + 1;
-        }
-
         // compose the voteComposition
         const voteComposition = {};
         for (let i = 0; i < gameAfterSave.playerIDs.length; i += 1) {
@@ -287,7 +280,6 @@ export const voteOnTeamProposal = (fields, socketID) => {
           voteComposition,
           roundOutcome: savedCurrentRound.roundOutcome,
           concludedRound: gameAfterSave.currentRoundIndex + 1,
-          failedMission,
         };
       }
     })
@@ -357,6 +349,8 @@ export const votesViewed = (socketID) => {
           missionBeforeSave.missionTeam = foundCurrentRound.proposedTeam.slice(0);
           return missionBeforeSave.save()
             .then((savedMission) => {
+              // manually set the waitingFor correctly, because otherwise it was auto-refilled to be all players
+              gameBeforeSave.waitingFor = savedMission.missionTeam;
               gameBeforeSave.currentExpectedInGameAction = 'voteOnMissionOutcome';
               return gameBeforeSave.save();
             })
@@ -391,7 +385,7 @@ export const voteOnMissionOutcome = (fields, socketID) => {
   let numCurrentlyWaiting;
   let gameBeforeSave;
   let numFailVotes = 0;
-  let missionOutcome = 'SUCCESS';
+  let missionOutcome = 'SUCCEEDED'; // the default; may be changed to 'FAILED' down below
   if (fields.voteType !== 'SUCCESS' && fields.voteType !== 'FAIL') {
     return new Promise((resolve, reject) => {
       reject(new Error('You must have bypassed the front-end to try sending a bad vote for mission outcome... Nice try.'));
@@ -422,14 +416,15 @@ export const voteOnMissionOutcome = (fields, socketID) => {
     .then((foundCurrentMission) => {
       foundCurrentMission.voteByPlayerIndex.set(gameBeforeSave.playerIDs.indexOf(votingPlayer.playerID), fields.voteType);
       if (numCurrentlyWaiting === 0) {
-        // all votes are cast; check if the missionOutcome should be 'SUCCESS' or 'FAIL'
+        // all votes are cast; check if the missionOutcome should be 'SUCCEEDED' or 'FAILED'
         for (let i = 0; i < foundCurrentMission.voteByPlayerIndex.length; i += 1) {
+          // Possibly dangerous: the array should still have 'TBD' in them... thought right now counting 'FAIL' is enough.
           if (foundCurrentMission.voteByPlayerIndex[i] === 'FAIL') {
             numFailVotes += 1;
           }
         }
         if (numFailVotes > 0) {
-          missionOutcome = 'FAIL';
+          missionOutcome = 'FAILED'; // by default it is 'SUCCEEDED', which is declared up top
         }
 
         foundCurrentMission.missionOutcome = missionOutcome;
