@@ -302,16 +302,20 @@ If the team proposal was approved:
 }
 ```
 
-Else (the team proposal was rejected, and the mission possibly failed due to too many rejected proposals):
+Else if (the team proposal was rejected, but it was not the 5th proposal for the same mission that was rejected):
 ```
 {
     action: 'teamSelectionStarting',
     currentLeaderID: String, // PlayerID
-    currentMission: Integer, // expecting an integer between 1 and 5, inclusive
+    currentMission: Integer, // expecting an integer between 1 and 5, inclusive (redundant information, because the mission should stay the same)
     currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
-    missionSize: Integer, // how many players are needed on the current mission
+    missionSize: Integer, // how many players are needed on the current mission (redundant information, because the mission should stay the same)
 }
 ```
+
+Else (it was the 5th proposal for the same mission that was rejected):
+
+The game ends with the spies winning; handle it the same way as described below ("**If the game has ended**").
 
 ## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:

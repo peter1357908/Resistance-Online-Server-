@@ -327,19 +327,8 @@ export const votesViewed = (socketID) => {
           // last proposal was rejected; go into another round of the current mission or the first round of the next mission
           // TODO: no magic numbers
           if (gameBeforeSave.currentRoundIndex >= 4) {
-            return newMission(gameBeforeSave)
-              .then((newMissionInfo) => {
-                return {
-                  action: 'teamSelectionStarting',
-                  waitingFor: [],
-                  sessionID: newMissionInfo.sessionID,
-                  currentLeaderID: newMissionInfo.currentLeaderID,
-                  currentMission: newMissionInfo.currentMissionIndex + 1,
-                  currentRound: newMissionInfo.currentRoundIndex + 1,
-                  missionSize: newMissionInfo.missionSize,
-                };
-              })
-              .catch((error) => { throw error; });
+            // TODO: save the game and handle game end
+            return null;
           } else {
             return newRound(gameBeforeSave)
               .then((newRoundInfo) => {
