@@ -57,8 +57,6 @@ app.get('/', (req, res) => {
 const port = process.env.PORT || 9090;
 server.listen(port);
 
-console.log(`listening on: ${port}`);
-
 io.on('connection', (socket) => {
   // ==============================================================
   // upon first connection, do...
@@ -221,7 +219,8 @@ io.on('connection', (socket) => {
               currentRound: result.currentRound,
               missionSize: result.missionSize,
             });
-          } else if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+          } else if (result.action === 'gameFinished') {
+            // note that here the condition is necessary because the action could have been 'waitingFor'
             io.to(result.sessionID).emit('inGame', {
               action: 'gameFinished',
               victoriousFaction: result.victoriousFaction,
@@ -250,14 +249,10 @@ io.on('connection', (socket) => {
               missionOutcome: result.missionOutcome,
               concludedMission: result.concludedMission,
             });
-            io.to(result.sessionID).emit('inGame', {
-              action: 'teamSelectionStarting',
-              currentLeaderID: result.currentLeaderID,
-              currentMission: result.currentMission,
-              currentRound: result.currentRound,
-              missionSize: result.missionSize,
-            });
             if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+              // note that unlike when we handle 'votesViewed', here we need to send 'missionVotes' action, so we can't
+              // set a condition on the action, but rather, we check for if 'victoriousFaction' is here (we COULD just
+              // check if it is null and send a null when we don't want to do the following...)
               io.to(result.sessionID).emit('inGame', {
                 action: 'gameFinished',
                 victoriousFaction: result.victoriousFaction,
@@ -266,6 +261,15 @@ io.on('connection', (socket) => {
                 action: 'gameHistory',
                 victoriousFaction: result.victoriousFaction,
                 gameHistory: result.gameHistory,
+              });
+            } else {
+              // the game is not ending yet
+              io.to(result.sessionID).emit('inGame', {
+                action: 'teamSelectionStarting',
+                currentLeaderID: result.currentLeaderID,
+                currentMission: result.currentMission,
+                currentRound: result.currentRound,
+                missionSize: result.missionSize,
               });
             }
           }

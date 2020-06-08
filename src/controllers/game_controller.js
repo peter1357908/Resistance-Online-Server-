@@ -440,7 +440,7 @@ export const voteOnMissionOutcome = (fields, socketID) => {
             let numFailedMissions = 0;
             let numSucceededMissions = 0;
             for (let i = 0; i < gameWithPopulatedMissions.missions.length; i += 1) {
-              if (gameWithPopulatedMissions.missions[i] === 'SUCCESS') {
+              if (gameWithPopulatedMissions.missions[i].missionOutcome === 'SUCCEEDED') {
                 numSucceededMissions += 1;
               } else {
                 numFailedMissions += 1;

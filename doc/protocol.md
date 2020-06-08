@@ -337,7 +337,7 @@ After everyone voted, the server broadcasts the following message to the room `s
 }
 ```
 
-**If the game has not ended**, the server then broadcasts to the room `sessionID` on event `inGame`:
+**If the game has not ended**, the server then emits to `sessionID` on event `inGame`:
 ```
 {
     action: 'teamSelectionStarting',
@@ -348,10 +348,7 @@ After everyone voted, the server broadcasts the following message to the room `s
 }
 ```
 
-**If the game has ended**, then the client will be able to view game history. Note (from Will): I haven't fully looked over the next section yet.
-
-**If** the above message is for the outcome of the last mission (conditions are met for some faction to win):
-The server sends to `sessionID` on event `inGame`:
+**If the game has ended** (conditions are met for some faction to win), the server emits to `sessionID` on event `inGame`:
 ```
 {
     action: 'gameFinished',
@@ -359,7 +356,7 @@ The server sends to `sessionID` on event `inGame`:
 }
 ```
 
-The server sends to `socket.id` on event `postGame`:
+The server emits to `sessionID` on event `postGame`:
 ```
 {
     action: 'gameHistory',

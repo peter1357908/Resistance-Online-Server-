@@ -14,7 +14,7 @@ const GameSchema = new Schema({
 
   victoriousFaction: String, // 'RESISTANCE' / 'SPY'
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
-  currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission().
+  currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission(). Redundant; can be inferred from the length of `missions`.
   currentRoundIndex: Number, // TODO: currently redundant - same as currentLeaderIndex
 
   inLobby: Boolean,
