@@ -75,6 +75,13 @@ Server sends to the client on the event `joinGame`:
 }
 ```
 
+Server sends to the client on the event `chat` (notice that the following it basically an array of tuples):
+```
+[
+    { playerID: String, message: String }
+]
+```
+
 server broadcasts to the room `sessionID` on the event `lobby`:
 ```
 {
@@ -187,13 +194,15 @@ once server receives a client's request, check to see if the `waitingFor` array 
 ```
 
 Once the server has received a 'factionViewed' action from the last client, it broadcasts to all the clients on the event `inGame`:
+```
 {
-    action: 'everyoneViewedFaction'
-    currentLeaderID: String // the playerID of the current leader
-    currentMission: Integer // from 1-5
-    missionSize: Integer // how many players are needed on the current mission
-    currentRound: Integer // 1-5
+    action: 'everyoneViewedFaction',
+    currentLeaderID: String, // the playerID of the current leader
+    currentMission: Integer, // from 1-5
+    currentRound: Integer, // 1-5
+    missionSize: Integer, // how many players are needed on the current mission
 }
+```
 
 ## ROUND LEADER CLICKS ON CARD
 client sends to the server on the event `inGame`:
@@ -243,24 +252,20 @@ client sends to the server on the event `inGame` after user finalizes on the vot
 ```
 
 If the vote came from someone who has not cast a vote yet, record the vote and broadcast to the room `sessionID` on event `inGame`:
+```
 {
     action: 'waitingFor',
     waitingFor: [String], // playerIDs
 }
+```
 
 Once the last vote is received, the server broadcasts to the room `sessionID` on event `inGame`:
-{
-    action: 'roundVotes',
-    voteComposition: { playerID: voteType } // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
-    voteResult: String, // Either APPROVE or REJECT, depending on which gets the majority (tie goes to reject)
-    currentRound: Integer // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
-}
-
-If this was this fifth round that just failed, the server broadcasts to the room `sessionID` on event `inGame`:
 ```
 {
-    action: 'tooManyRounds',
-    currentMission: Integer, // integer from 1 to 5
+    action: 'roundVotes',
+    voteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
+    roundOutcome: String, // Either 'APPROVED' or 'REJECTED', depending on which gets the majority (confirmed with the rule: tie goes to 'REJECTED')
+    concludedRound: Integer, // what round we are on NOW (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
 }
 ```
 
@@ -290,14 +295,20 @@ If the team proposal was approved:
 }
 ```
 
-Else (the team proposal was rejected):
+Else if (the team proposal was rejected, but it was not the 5th proposal for the same mission that was rejected):
 ```
 {
     action: 'teamSelectionStarting',
     currentLeaderID: String, // PlayerID
-    currentMission: Integer, // expecting an integer between 1 and 5, inclusive
+    currentMission: Integer, // expecting an integer between 1 and 5, inclusive (redundant information, because the mission should stay the same)
+    currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    missionSize: Integer, // how many players are needed on the current mission (redundant information, because the mission should stay the same)
 }
 ```
+
+Else (it was the 5th proposal for the same mission that was rejected):
+
+The game ends with the spies winning; handle it the same way as described below ("**If the game has ended**").
 
 ## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:
@@ -320,36 +331,37 @@ After everyone voted, the server broadcasts the following message to the room `s
 ```
 {
     action: 'missionVotes',
-    currentMission: Integer // what mission we were on, 1-5
-    missionOutcome: String // either 'SUCCEEDED' OR 'FAILED'
-    numFailVotes: Integer // how many fail votes were received
+    numFailVotes: Integer, // how many 'FAIL' votes were received
+    missionOutcome: String, // either 'SUCCEEDED' OR 'FAILED'
+    concludedMission: Integer, // what mission we were on, 1-5
 }
 ```
 
-**If the game has not ended**, the server then broadcasts to the room `sessionID` on event `inGame`:
+**If the game has not ended**, the server then emits to `sessionID` on event `inGame`:
 ```
 {
     action: 'teamSelectionStarting',
     currentLeaderID: String,
     currentMission: Integer,
+    currentRound: Integer, // what round we are on now (1-5). If the vote passed, we're on round 1. If the vote failed, round is prev_round + 1
+    missionSize: Integer, // how many players are needed on the current mission
 }
 ```
 
-**If the game has ended**, then the client will be able to view game history. Note (from Will): I haven't fully looked over the next section yet.
-
-**If** the above message is for the outcome of the last mission (conditions are met for some faction to win):
-The server sends to `sessionID` on event `inGame`:
+**If the game has ended** (conditions are met for some faction to win), the server emits to `sessionID` on event `inGame`:
 ```
 {
     action: 'gameFinished',
+    victoriousFaction: String, // 'RESISTANCE' or 'SPY' (redundant information; the outcome can be determined from `gameHistory` below)
 }
 ```
 
-The server sends to `socket.id` on event `postGame`:
+The server emits to `sessionID` on event `postGame`:
 ```
 {
     action: 'gameHistory',
-    victoriousFaction: String, // 'RESISTANCE' or 'SPIES' (redundant information; the outcome can be determined from `gameHistory` below)
+    victoriousFaction: String, // 'RESISTANCE' or 'SPY' (redundant information; the outcome can be determined from `gameHistory` below)
+    spies: [String], // playerIDs
     gameHistory: `gameHistoryObject`, // defined below
 }
 ```
@@ -365,8 +377,8 @@ The server sends to `socket.id` on event `postGame`:
 `missionObject`:
 ```
 {
-    missionOutcome: String, // 'SUCCESS' or 'FAIL' (redundant information; the outcome can be determined from `missionVoteComposition` below)
-    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL')
+    missionOutcome: String, // 'SUCCEEDED' or 'FAILED' (redundant information; the outcome can be determined from `missionVoteComposition` below)
+    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
     rounds: [`roundObject`], // `roundObject` is defined below; in the order of the rounds that took place
 }
 ```
@@ -377,6 +389,7 @@ The server sends to `socket.id` on event `postGame`:
     roundOutcome: String, // 'APPROVED' or 'REJECTED' (redundant information; the last round is the only round whose proposal was approved)
     roundVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('APPROVE' / 'REJECT')
     roundLeader: String, // playerID of the round's leader
+    proposedTeam: [String], // playerIDs
 }
 ```
 
@@ -420,9 +433,10 @@ if the client is an existing player, broadcast to the corresponding `sessionID` 
 * refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
 * refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
 * handle unexpected disconnections (replace player with AI, remove player from lobby upon disconnection, etc.)
-* make it so that the player join the game with a random name, and is allowed to change it in the lobby at will, until the game starts
+* make it so that the player joins the game with a random name, and is allowed to change it in the lobby at will, until the game starts
 * rename the `creator` status to be `lobby master` status
 * allow reconnecting to an ongoing game after disconnecting
 * allow spectating games
 * implement a `cardHoveredOver` action to complement `cardClicked` action
+* merge 'everyoneViewedFaction' with 'teamSelectionStarting' (alternatively, distinguish between the three similar use cases by what fields are meaningful to each)
 

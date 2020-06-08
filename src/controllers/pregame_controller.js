@@ -95,6 +95,7 @@ export const joinGame = (fields, socketID) => {
         playerID: savedPlayer.playerID,
         creatorID: finalGame.creatorID,
         playerIDs: finalGame.playerIDs,
+        chatLog: finalGame.chatLog,
       };
     })
     .catch((error) => { throw error; });
@@ -139,6 +140,9 @@ export const startGame = (socketID) => {
       }
       // second shuffle ensures that the spies are not always the first players after the first shuffle...
       shuffle(foundGame.playerIDs);
+
+      // otherwise we can also do a slice(0) like what we do below for waitingFor
+      foundGame.markModified('playerIDs');
 
       foundGame.inLobby = false;
 

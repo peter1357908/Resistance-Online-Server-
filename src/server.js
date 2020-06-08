@@ -8,7 +8,8 @@ import http from 'http';
 import mongoose from 'mongoose';
 
 import * as Pregame from './controllers/pregame_controller';
-import * as Ingame from './controllers/game_controller';
+import * as Ingame from './controllers/ingame_controller';
+import * as Postgame from './controllers/postgame_controller';
 
 // DB Setup
 const config = {
@@ -57,8 +58,6 @@ app.get('/', (req, res) => {
 const port = process.env.PORT || 9090;
 server.listen(port);
 
-console.log(`listening on: ${port}`);
-
 io.on('connection', (socket) => {
   // ==============================================================
   // upon first connection, do...
@@ -94,6 +93,7 @@ io.on('connection', (socket) => {
         playerID: result.playerID,
         sessionID: result.sessionID,
       });
+      io.to(socket.id).emit('chat', result.chatLog);
       io.to(fields.sessionID).emit('lobby', {
         action: 'someoneJoined',
         creatorID: result.creatorID,
@@ -162,8 +162,8 @@ io.on('connection', (socket) => {
               action: result.action,
               currentLeaderID: result.currentLeaderID,
               currentMission: result.currentMission,
-              missionSize: result.missionSize,
               currentRound: result.currentRound,
+              missionSize: result.missionSize,
             });
           }
         }).catch((error) => {
@@ -182,18 +182,131 @@ io.on('connection', (socket) => {
           io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
         });
         break;
+      case 'voteOnTeamProposal':
+        Ingame.voteOnTeamProposal(fields, socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'roundVotes') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              voteComposition: result.voteComposition,
+              roundOutcome: result.roundOutcome,
+              concludedRound: result.concludedRound,
+            });
+          }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'votesViewed':
+        Ingame.votesViewed(socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'missionStarting') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              playersOnMission: result.playersOnMission,
+            });
+          } else if (result.action === 'teamSelectionStarting') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              currentLeaderID: result.currentLeaderID,
+              currentMission: result.currentMission,
+              currentRound: result.currentRound,
+              missionSize: result.missionSize,
+            });
+          } else if (result.action === 'gameFinished') {
+            // note that here the condition is necessary because the action could have been 'waitingFor'
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              victoriousFaction: result.victoriousFaction,
+            });
+            io.to(result.sessionID).emit('postGame', {
+              action: 'gameHistory',
+              victoriousFaction: result.victoriousFaction,
+              spies: result.spies,
+              gameHistory: result.gameHistory,
+            });
+          }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'voteOnMissionOutcome':
+        Ingame.voteOnMissionOutcome(fields, socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: 'waitingFor',
+            waitingFor: result.waitingFor,
+          });
+          if (result.action === 'missionVotes') {
+            io.to(result.sessionID).emit('inGame', {
+              action: result.action,
+              numFailVotes: result.numFailVotes,
+              missionOutcome: result.missionOutcome,
+              concludedMission: result.concludedMission,
+            });
+            if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+              // note that unlike when we handle 'votesViewed', here we need to send 'missionVotes' action, so we can't
+              // set a condition on the action, but rather, we check for if 'victoriousFaction' is here (we COULD just
+              // check if it is null and send a null when we don't want to do the following...)
+              io.to(result.sessionID).emit('inGame', {
+                action: 'gameFinished',
+                victoriousFaction: result.victoriousFaction,
+              });
+              io.to(result.sessionID).emit('postGame', {
+                action: 'gameHistory',
+                victoriousFaction: result.victoriousFaction,
+                spies: result.spies,
+                gameHistory: result.gameHistory,
+              });
+            } else {
+              // the game is not ending yet
+              io.to(result.sessionID).emit('inGame', {
+                action: 'teamSelectionStarting',
+                currentLeaderID: result.currentLeaderID,
+                currentMission: result.currentMission,
+                currentRound: result.currentRound,
+                missionSize: result.missionSize,
+              });
+            }
+          }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
       default:
         console.log(`unknown action: ${fields.action}`);
         break;
     }
   });
 
-  socket.on('chat', (fields) => {
-    Ingame.newChat(socket.id, fields).then((result) => {
-      io.to(result.sessionID).emit('chat', result.logs);
+  socket.on('postGame', (fields) => {
+    Postgame.finishViewingGameHistory(socket.id).then((result) => {
+      io.to(result.sessionID).emit('postGame', {
+        action: 'waitingFor',
+        waitingFor: result.waitingFor,
+      });
+    }).catch((error) => {
+      console.log(error);
+      io.to(socket.id).emit('postGame', { action: 'fail', failMessage: error.message });
     });
   });
-  // socket.on('postGame')...
+
+  socket.on('chat', (fields) => {
+    Ingame.newChat(socket.id, fields).then((result) => {
+      io.to(result.sessionID).emit('chat', result.chatLog);
+    }).catch((error) => {
+      console.log(error);
+      io.to(socket.id).emit('chat', [{ playerID: 'The Server', message: error.message }]);
+    });
+  });
 
   socket.on('disconnect', () => {
     Pregame.handleDisconnection(socket.id).then((result) => {
@@ -206,8 +319,6 @@ io.on('connection', (socket) => {
           creatorID: result.creatorID,
         });
       }
-    }).catch((error) => {
-      console.log(error);
-    });
+    }).catch((error) => { console.log(error); });
   });
 });

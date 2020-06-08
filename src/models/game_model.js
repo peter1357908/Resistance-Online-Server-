@@ -12,14 +12,15 @@ const GameSchema = new Schema({
   // waitingForIndex: [Number],
   // spiesIndex: [Number],
 
+  victoriousFaction: String, // 'RESISTANCE' / 'SPY'
   missions: [{ type: Schema.Types.ObjectId, ref: 'Mission' }],
-  currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission().
-  currentRoundIndex: Number,
+  currentMissionIndex: Number, // initialized to be -1 to be clever... for use directly in newMission(). Redundant; can be inferred from the length of `missions`.
+  currentRoundIndex: Number, // TODO: currently redundant - same as currentLeaderIndex
 
   inLobby: Boolean,
-  currentExpectedInGameAction: String,
+  currentExpectedInGameAction: String, // also used for 'finishViewingGameHistory', which is postGame... TODO: naming refactoring
 
-  logs: [{ playerID: String, message: String }],
+  chatLog: [{ playerID: String, message: String }],
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },
