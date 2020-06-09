@@ -176,7 +176,10 @@ export const factionViewed = (socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'factionViewed') {
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'factionViewed') {
         throw new Error('You must have bypassed the front-end to try announcing that you viewed faction without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(annoucingPlayer.playerID, foundGame);
@@ -224,8 +227,10 @@ export const cardClicked = (fields, socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null
-        || foundGame.currentExpectedInGameAction !== 'proposeTeam' // note the cleverness here... may be a little dangerous
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'proposeTeam' // note the cleverness here... may be a little dangerous
         || foundGame.playerIDs[foundGame.currentLeaderIndex] !== announcingPlayer.playerID) {
         throw new Error('You must have bypassed the front-end to try announcing that you clicked on a card without being asked to... Nice try.');
       }
@@ -256,8 +261,10 @@ export const proposeTeam = (fields, socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null
-        || foundGame.currentExpectedInGameAction !== 'proposeTeam'
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'proposeTeam'
         || foundGame.playerIDs[foundGame.currentLeaderIndex] !== proposingPlayer.playerID) {
         throw new Error('You must have bypassed the front-end to try proposing a team without being asked to... Nice try.');
       }
@@ -313,7 +320,10 @@ export const voteOnTeamProposal = (fields, socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'voteOnTeamProposal') {
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'voteOnTeamProposal') {
         throw new Error('You must have bypassed the front-end to try voting on team proposal without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(votingPlayer.playerID, foundGame);
@@ -429,7 +439,10 @@ export const votesViewed = (socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'votesViewed') {
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'votesViewed') {
         throw new Error('You must have bypassed the front-end to try announcing that you viewed votes without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(annoucingPlayer.playerID, foundGame);
@@ -520,7 +533,10 @@ export const voteOnMissionOutcome = (fields, socketID) => {
       return Game.findOne({ sessionID: foundPlayer.sessionID });
     })
     .then((foundGame) => {
-      if (foundGame === null || foundGame.currentExpectedInGameAction !== 'voteOnMissionOutcome') {
+      if (foundGame === null) {
+        throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+      }
+      if (foundGame.currentExpectedInGameAction !== 'voteOnMissionOutcome') {
         throw new Error('You must have bypassed the front-end to try voting on mission outcome without being asked to... Nice try.');
       }
       numCurrentlyWaiting = updateWaitingFor(votingPlayer.playerID, foundGame);
@@ -632,18 +648,33 @@ export const voteOnMissionOutcome = (fields, socketID) => {
     .catch((error) => { throw error; });
 };
 
-// special function that is its own event (`chat`, instead of being targeted at `lobby` or `in-game` or such)
-export const newChat = (socketID, fields) => {
+// special functionality that is its own event (i.e. `chat`, which persists from `lobby` to `postGame`)
+export const newChat = (message, socketID) => {
+  if (message.length > 255) {
+    return new Promise((resolve, reject) => {
+      reject(new Error('Each chat message should be no more than 255 characters.'));
+    });
+  }
   return Player.findOne({ socketID })
     .then((foundPlayer) => {
-      return Game.findOne({ sessionID: foundPlayer.sessionID });
-    })
-    .then((foundGame) => {
-      foundGame.chatLog.push({ playerID: fields.messageFrom, message: fields.message });
-      return foundGame.save();
-    })
-    .then((savedGame) => {
-      return { sessionID: savedGame.sessionID, chatLog: savedGame.chatLog };
+      if (foundPlayer === null) {
+        throw new Error('You must have bypassed the front-end to try sending a chat message without being a player... Nice try.');
+      }
+      return Game.findOne({ sessionID: foundPlayer.sessionID })
+        .then((foundGame) => {
+          if (foundGame === null) {
+            throw new Error('HOW?? You are a player but you are not associated with any game... what have you done?????');
+          }
+          foundGame.chatLog.push([foundPlayer.playerID, message]);
+          return foundGame.save();
+        })
+        .then((savedGame) => {
+          return {
+            sessionID: savedGame.sessionID,
+            broadcastMessage: [foundPlayer.playerID, message],
+          };
+        })
+        .catch((error) => { throw error; });
     })
     .catch((error) => { throw error; });
 };

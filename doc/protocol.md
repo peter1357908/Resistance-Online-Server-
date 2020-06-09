@@ -75,10 +75,10 @@ Server sends to the client on the event `joinGame`:
 }
 ```
 
-Server sends to the client on the event `chat` (notice that the following it basically an array of tuples):
+Server sends to the client on the event `chat` (notice that the following is an array of arrays):
 ```
 [
-    { playerID: String, message: String }
+    [String] // a 2-element array in the format [messageFrom, message]
 ]
 ```
 
@@ -417,23 +417,19 @@ Both the server and the client should assume that the session is proceeding to t
 ## CLIENT SENDS CHAT MESSAGE
 client sends to the server on the event `chat`:
 ```
-{
-    message: String
-}
+String // just the message string
 ```
 
 if the message is longer than 255 characters, a fail message is sent back to the sender instead of broadcasting the message to everyone.
 
-if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat`:
+if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat` the following array:
 ```
-{
-    messageFrom: String // playerID
-    message: String
-}
+[
+    String // there should be two strings; the first string is the playerID who sent the message; the second string is the message itself
+]
 ```
 
 ## TODOs
-* refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
 * refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
 * handle unexpected disconnections while inGame and postGame (it is already handled while inLobby...)
 * make it so that the player joins the game with a random name, and is allowed to change it in the lobby at will, until the game starts

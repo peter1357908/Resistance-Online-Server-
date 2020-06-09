@@ -20,7 +20,7 @@ const GameSchema = new Schema({
   inLobby: Boolean,
   currentExpectedInGameAction: String, // also used for 'finishViewingGameHistory', which is postGame... TODO: naming refactoring
 
-  chatLog: [{ playerID: String, message: String }],
+  chatLog: [[String]], // an array of 2-element arrays; each inner array is of format [messageFrom, message]... might actually need to be its own schema so that we are not grabbing the full content every time...
 }, {
   toObject: { virtuals: true },
   toJSON: { virtuals: true },

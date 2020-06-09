@@ -308,12 +308,15 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('chat', (fields) => {
-    Ingame.newChat(socket.id, fields).then((result) => {
-      io.to(result.sessionID).emit('chat', result.chatLog);
+  socket.on('chat', (message) => {
+    Ingame.newChat(message, socket.id).then((result) => {
+      io.to(result.sessionID).emit('chat', result.broadcastMessage);
     }).catch((error) => {
       console.log(error);
-      io.to(socket.id).emit('chat', [{ playerID: 'The Server', message: error.message }]);
+      io.to(socket.id).emit('chat', [
+        'THE ALMIGHTY SERVER', // 19 characters in length, which is impossible for a playerID
+        error.message,
+      ]);
     });
   });
 
