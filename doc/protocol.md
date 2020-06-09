@@ -10,7 +10,7 @@ Client sends to the server on the event `createGame`:
 
 If any of the following conditions is met, the `createGame` request should be rejected:
 
-* Any of the input fields in the above message is empty
+* Any of the input fields in the above message is empty or more than 15 characters
 * `sessionID` already exists
 
 If the `createGame` request should be rejected, the server sends back to `socket.id` on the event `createGame`:
@@ -51,7 +51,7 @@ Client sends to the server on the event `joinGame`:
 
 If any of the following conditions is met, the `joinGame` request should be rejected:
 
-* Any of the input fields in the above message is empty
+* Any of the input fields in the above message is empty or more than 15 characters
 * `sessionID` is not found
 * `password` is incorrect
 * session specified by `sessionID` is no longer accepting new players (it may be because the session is no longer "in lobby", the session lobby is full, etc.)
@@ -311,12 +311,12 @@ Else (the team proposal was rejected, but it was not the 5th proposal for the sa
 }
 ```
 
-## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
+## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCEED OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:
 ```
 {
     action: 'voteOnMissionOutcome',
-    voteType: String, // 'SUCCESS' or 'FAIL'
+    voteType: String, // 'SUCCEED' or 'FAIL'
 }
 ```
 
@@ -379,7 +379,7 @@ The server emits to `sessionID` on event `postGame`:
 ```
 {
     missionOutcome: String, // 'SUCCEEDED' or 'FAILED' (redundant information; the outcome can be determined from `missionVoteComposition` below)
-    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
+    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCEED' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
     rounds: [`roundObject`], // `roundObject` is defined below; in the order of the rounds that took place
 }
 ```
@@ -421,6 +421,8 @@ client sends to the server on the event `chat`:
     message: String
 }
 ```
+
+if the message is longer than 
 
 if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat`:
 ```

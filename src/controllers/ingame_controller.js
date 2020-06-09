@@ -124,7 +124,7 @@ const composeGameHistoryObject = (savedGame) => {
           missionVoteComposition[voter] = populatedMission.voteByPlayerIndex[populatedGame.playerIDs.indexOf(voter)];
           // alternatively, we can do it the way we do roundVoteComposition:
           // const voteType = populatedMission.voteByPlayerIndex[j];
-          // if (voteType === 'SUCCESS' || voteType === 'FAIL') {
+          // if (voteType === 'SUCCEED' || voteType === 'FAIL') {
           //   // the conditions are to avoid recording placeholders (currently 'TBD')
           //   missionVoteComposition[populatedGame.playerIDs[j]] = voteType;
           // }
@@ -505,7 +505,7 @@ export const voteOnMissionOutcome = (fields, socketID) => {
   let gameBeforeSave;
   let numFailVotes = 0;
   let missionOutcome = 'SUCCEEDED'; // the default; may be changed to 'FAILED' down below
-  if (fields.voteType !== 'SUCCESS' && fields.voteType !== 'FAIL') {
+  if (fields.voteType !== 'SUCCEED' && fields.voteType !== 'FAIL') {
     return new Promise((resolve, reject) => {
       reject(new Error('You must have bypassed the front-end to try sending a bad vote for mission outcome... Nice try.'));
     });
