@@ -297,7 +297,7 @@ export const proposeTeam = (fields, socketID) => {
 export const voteOnTeamProposal = (fields, socketID) => {
   let votingPlayer;
   let numCurrentlyWaiting;
-  let gameAfterSave;
+  let gameBeforeSave;
   if (fields.voteType !== 'APPROVE' && fields.voteType !== 'REJECT') {
     return new Promise((resolve, reject) => {
       reject(new Error('You must have bypassed the front-end to try sending a bad vote for team proposal... Nice try.'));
@@ -320,22 +320,17 @@ export const voteOnTeamProposal = (fields, socketID) => {
       if (numCurrentlyWaiting === null) {
         throw new Error('You must have bypassed the front-end to try voting on team proposal after already voting once... Nice try.');
       }
-      if (numCurrentlyWaiting === 0) {
-        foundGame.currentExpectedInGameAction = 'votesViewed';
-      }
-      return foundGame.save();
-    })
-    .then((savedGame) => {
-      gameAfterSave = savedGame;
-      return Mission.findById(savedGame.missions[savedGame.currentMissionIndex]);
+      gameBeforeSave = foundGame;
+
+      return Mission.findById(foundGame.missions[foundGame.currentMissionIndex]);
     })
     .then((foundCurrentMission) => {
-      return Round.findById(foundCurrentMission.rounds[gameAfterSave.currentRoundIndex]);
+      return Round.findById(foundCurrentMission.rounds[gameBeforeSave.currentRoundIndex]);
     })
     .then((foundCurrentRound) => {
       // https://stackoverflow.com/questions/24618584/mongoose-save-not-updating-value-in-an-array-in-database-document
-      // BAD ATTEMPT: foundCurrentRound.voteByPlayerIndex[gameAfterSave.playerIDs.indexOf(votingPlayer.playerID)] = fields.voteType;
-      foundCurrentRound.voteByPlayerIndex.set(gameAfterSave.playerIDs.indexOf(votingPlayer.playerID), fields.voteType);
+      // BAD ATTEMPT: foundCurrentRound.voteByPlayerIndex[gameBeforeSave.playerIDs.indexOf(votingPlayer.playerID)] = fields.voteType;
+      foundCurrentRound.voteByPlayerIndex.set(gameBeforeSave.playerIDs.indexOf(votingPlayer.playerID), fields.voteType);
       if (numCurrentlyWaiting === 0) {
         // all votes are cast; check if the team proposal has been approved or rejected
         const numTotalVotes = foundCurrentRound.voteByPlayerIndex.length; // at this point should be the same as the number of players
@@ -353,26 +348,68 @@ export const voteOnTeamProposal = (fields, socketID) => {
     })
     .then((savedCurrentRound) => {
       if (numCurrentlyWaiting !== 0) {
-        return {
-          action: 'waitingFor',
-          sessionID: gameAfterSave.sessionID,
-          waitingFor: gameAfterSave.waitingFor,
-        };
+        // still waiting on someone... should emit 'waitingFor'
+        return gameBeforeSave.save()
+          .then((savedGame) => {
+            return {
+              action: 'waitingFor',
+              sessionID: savedGame.sessionID,
+              waitingFor: savedGame.waitingFor,
+            };
+          })
+          .catch((error) => { throw error; });
       } else {
+        // not waiting on anyone anymore, should emit 'roundVotes'.
         // compose the voteComposition
         const voteComposition = {};
         for (let i = 0; i < savedCurrentRound.voteByPlayerIndex.length; i += 1) {
-          voteComposition[gameAfterSave.playerIDs[i]] = savedCurrentRound.voteByPlayerIndex[i];
+          voteComposition[gameBeforeSave.playerIDs[i]] = savedCurrentRound.voteByPlayerIndex[i];
         }
 
-        return {
-          action: 'roundVotes',
-          sessionID: gameAfterSave.sessionID,
-          waitingFor: [],
-          voteComposition,
-          roundOutcome: savedCurrentRound.roundOutcome,
-          concludedRound: gameAfterSave.currentRoundIndex + 1,
-        };
+        // check for if the game should end
+        // TODO: no magic numbers
+        if (gameBeforeSave.currentRoundIndex >= 4 && savedCurrentRound.roundOutcome === 'REJECTED') {
+          // if the game should end
+          gameBeforeSave.victoriousFaction = 'SPY';
+          gameBeforeSave.currentExpectedInGameAction = 'finishViewingGameHistory';
+          return gameBeforeSave.save()
+            .then((savedGame) => {
+              return composeGameHistoryObject(savedGame)
+                .then((gameHistoryObject) => {
+                  return {
+                    action: 'roundVotes',
+                    sessionID: savedGame.sessionID,
+                    waitingFor: [],
+
+                    voteComposition,
+                    roundOutcome: savedCurrentRound.roundOutcome,
+                    concludedRound: savedGame.currentRoundIndex + 1,
+
+                    victoriousFaction: 'SPY',
+                    spies: savedGame.spies,
+                    gameHistory: gameHistoryObject,
+                  };
+                })
+                .catch((error) => { throw error; });
+            })
+            .catch((error) => { throw error; });
+        } else {
+          // if the game should not end
+          gameBeforeSave.currentExpectedInGameAction = 'votesViewed';
+          return gameBeforeSave.save()
+            .then((savedGame) => {
+              return {
+                action: 'roundVotes',
+                sessionID: savedGame.sessionID,
+                waitingFor: [],
+
+                voteComposition,
+                roundOutcome: savedCurrentRound.roundOutcome,
+                concludedRound: savedGame.currentRoundIndex + 1,
+              };
+            })
+            .catch((error) => { throw error; });
+        }
       }
     })
     .catch((error) => { throw error; });
@@ -410,42 +447,21 @@ export const votesViewed = (socketID) => {
     .then((foundCurrentRound) => {
       if (numCurrentlyWaiting === 0) {
         if (foundCurrentRound.roundOutcome === 'REJECTED') {
-          // current proposal was rejected; go into another round of the current mission or the first round of the next mission
-          // TODO: no magic numbers
-          if (gameBeforeSave.currentRoundIndex >= 4) {
-            gameBeforeSave.victoriousFaction = 'SPY';
-            gameBeforeSave.currentExpectedInGameAction = 'finishViewingGameHistory';
-            return gameBeforeSave.save()
-              .then((savedGame) => {
-                return composeGameHistoryObject(savedGame);
-              })
-              .then((gameHistoryObject) => {
-                return {
-                  action: 'gameFinished',
-                  sessionID: gameBeforeSave.sessionID,
-                  waitingFor: [],
-
-                  victoriousFaction: 'SPY',
-                  spies: gameBeforeSave.spies,
-                  gameHistory: gameHistoryObject,
-                };
-              })
-              .catch((error) => { throw error; });
-          } else {
-            return newRound(gameBeforeSave)
-              .then((newRoundInfo) => {
-                return {
-                  action: 'teamSelectionStarting',
-                  waitingFor: [],
-                  sessionID: newRoundInfo.sessionID,
-                  currentLeaderID: newRoundInfo.currentLeaderID,
-                  currentMission: newRoundInfo.currentMissionIndex + 1,
-                  currentRound: newRoundInfo.currentRoundIndex + 1,
-                  missionSize: newRoundInfo.missionSize,
-                };
-              })
-              .catch((error) => { throw error; });
-          }
+          // current proposal was rejected; go into another round of the current mission (if we reach here, it is not
+          // the 5th proposal that was rejected, because otherwise the game would have ended at `voteOnTeamProposal()`)
+          return newRound(gameBeforeSave)
+            .then((newRoundInfo) => {
+              return {
+                action: 'teamSelectionStarting',
+                sessionID: newRoundInfo.sessionID,
+                waitingFor: [],
+                currentLeaderID: newRoundInfo.currentLeaderID,
+                currentMission: newRoundInfo.currentMissionIndex + 1,
+                currentRound: newRoundInfo.currentRoundIndex + 1,
+                missionSize: newRoundInfo.missionSize,
+              };
+            })
+            .catch((error) => { throw error; });
         } else {
           // current proposal was approved; go into the current mission
           // slice(0) may not be necessary...
