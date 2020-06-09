@@ -1,11 +1,10 @@
 # Online Multiplayer Game API
 
-
 ![Team Photo](https://i.imgur.com/FAXdtY4.jpg)
 
 We will be building an online version of the popular game, Resistance. The game will be free-to-play with no sign-ups required!
 
-TODO: short project description, some sample screenshots or mockups
+Please refer to (our protocol)[github.com/dartmouth-cs52-20S/project-api-online-multiplayer-game/blob/master/doc/protocol.md] for communication between front-end and back-end for some extra reading if you would like to!
 
 ## Architecture
 

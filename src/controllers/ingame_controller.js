@@ -236,6 +236,7 @@ export const cardClicked = (fields, socketID) => {
 
       return {
         action: 'cardClicked',
+        sessionID: foundGame.sessionID,
         cardPlayerID: fields.cardPlayerID,
       };
     })
