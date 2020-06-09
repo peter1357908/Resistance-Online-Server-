@@ -31,9 +31,14 @@ const discordRequest = (message) => {
 // Message Handling Functions (function name should be the same as the action it handles)
 export const createGame = (fields, socketID) => {
   let gameAfterSave;
+  if (typeof fields.sessionID !== 'string' || typeof fields.password !== 'string' || typeof fields.playerID !== 'string') {
+    return new Promise((resolve, reject) => {
+      reject(new Error('You must have bypassed the front-end to try sending a jumbled create request... Nice try.'));
+    });
+  }
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
-      reject(new Error('You must have bypassed the front-end to send a create request with an empty field... Nice try.'));
+      reject(new Error('You must have bypassed the front-end to try sending a create request with an empty field... Nice try.'));
     });
   }
   if (fields.sessionID.length > 15 || fields.password.length > 15 || fields.playerID.length > 15) {
@@ -78,6 +83,11 @@ export const createGame = (fields, socketID) => {
 };
 
 export const joinGame = (fields, socketID) => {
+  if (typeof fields.sessionID !== 'string' || typeof fields.password !== 'string' || typeof fields.playerID !== 'string') {
+    return new Promise((resolve, reject) => {
+      reject(new Error('You must have bypassed the front-end to try sending a jumbled join request... Nice try.'));
+    });
+  }
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
       reject(new Error('You must have bypassed the front-end to send a join request with an empty field... Nice try.'));

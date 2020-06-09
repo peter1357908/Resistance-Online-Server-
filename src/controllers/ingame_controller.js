@@ -650,6 +650,11 @@ export const voteOnMissionOutcome = (fields, socketID) => {
 
 // special functionality that is its own event (i.e. `chat`, which persists from `lobby` to `postGame`)
 export const newChat = (message, socketID) => {
+  if (typeof message !== 'string') {
+    return new Promise((resolve, reject) => {
+      reject(new Error('You must have bypassed the front-end to try sending a jumbled chat message... Nice try.'));
+    });
+  }
   if (message.length > 255) {
     return new Promise((resolve, reject) => {
       reject(new Error('Each chat message should be no more than 255 characters.'));
