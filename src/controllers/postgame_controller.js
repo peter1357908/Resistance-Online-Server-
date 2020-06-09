@@ -1,6 +1,6 @@
 import Game from '../models/game_model';
 import Player from '../models/player_model';
-import updateWaitingFor from './ingame_controller';
+import { updateWaitingFor, newMission } from './ingame_controller';
 
 // postgame_controller should have more functions
 // eslint-disable-next-line import/prefer-default-export

@@ -8,7 +8,7 @@ import MissionSizes from '../resources/mission_sizes';
 // Helper Functions
 // IMPORTANT: newMission() will modify and save the input `gameBeforeSave`!
 // (including setting its currentExpectedInGameAction as 'proposeTeam'!)
-const newMission = (gameBeforeSave) => {
+export const newMission = (gameBeforeSave) => {
   let missionAfterSave;
   const round = new Round();
   [round.currentLeaderID] = gameBeforeSave.playerIDs;
@@ -69,6 +69,9 @@ const newRound = (gameBeforeSave) => {
       missionAfterSave = savedCurrentMission;
       gameBeforeSave.currentRoundIndex += 1;
       gameBeforeSave.currentLeaderIndex += 1;
+      if (gameBeforeSave.currentLeaderIndex === gameBeforeSave.playerIDs.length) {
+        gameBeforeSave.currentLeaderIndex = 0;
+      }
       gameBeforeSave.currentExpectedInGameAction = 'proposeTeam';
       return gameBeforeSave.save();
     })
