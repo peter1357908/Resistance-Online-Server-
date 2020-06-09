@@ -1,3 +1,4 @@
+import axios from 'axios';
 import Game from '../models/game_model';
 import Player from '../models/player_model';
 
@@ -13,6 +14,18 @@ const shuffle = (array) => {
   }
 };
 
+// https://dev.to/oskarcodes/send-automated-discord-messages-through-webhooks-using-javascript-1p01
+const discordRequest = (message) => {
+  const params = {
+    username: 'Mad Chad',
+    content: message,
+  };
+  axios.post(
+    'https://discordapp.com/api/webhooks/719699377920409651/yKPjibpQT-6T7ms_AXBhrMEkoMh-w-yVW4_-wS8QvikSqRq-ZM9P_ewpNPwY0tVN63dr',
+    params,
+  ).catch((error) => { console.log(error); });
+};
+
 export const createGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
@@ -25,6 +38,7 @@ export const createGame = (fields, socketID) => {
       if (foundGame != null) {
         throw new Error('the sessionID already exists');
       }
+      discordRequest(fields.sessionID);
       const game = new Game();
       game.sessionID = fields.sessionID;
       game.password = fields.password;
