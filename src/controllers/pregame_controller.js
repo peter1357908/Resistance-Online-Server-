@@ -27,7 +27,10 @@ const discordRequest = (message) => {
   ).catch((error) => { console.log(error); });
 };
 
+// --------------------------------------------------------------------------
+// Message Handling Functions (function name should be the same as the action it handles)
 export const createGame = (fields, socketID) => {
+  let gameAfterSave;
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
       reject(new Error('all fields must be filled out'));
@@ -35,7 +38,7 @@ export const createGame = (fields, socketID) => {
   }
   return Game.findOne({ sessionID: fields.sessionID })
     .then((foundGame) => {
-      // if a game with the same sessionID already exists, fail the creation request
+      // if a game with the same sessionID already exists, reject the creation request
       if (foundGame != null) {
         throw new Error('the sessionID already exists');
       }
@@ -49,6 +52,7 @@ export const createGame = (fields, socketID) => {
       return game.save();
     })
     .then((savedGame) => {
+      gameAfterSave = savedGame;
       const player = new Player();
       player.playerID = fields.playerID;
       player.sessionID = fields.sessionID;
@@ -58,10 +62,10 @@ export const createGame = (fields, socketID) => {
     .then((savedPlayer) => {
       // assuming that the saved values are the same as the input fields
       return {
-        sessionID: fields.sessionID,
-        playerID: fields.playerID,
-        creatorID: fields.playerID,
-        playerIDs: [fields.playerID],
+        sessionID: gameAfterSave.sessionID,
+        playerID: savedPlayer.playerID,
+        creatorID: gameAfterSave.playerID,
+        playerIDs: gameAfterSave.playerIDs,
       };
     })
     .catch((error) => { throw error; });
