@@ -10,8 +10,10 @@ import MissionSizes from '../resources/mission_sizes';
 // (including setting its currentExpectedInGameAction as 'proposeTeam'!)
 const newMission = (gameBeforeSave) => {
   let missionAfterSave;
+  gameBeforeSave.currentLeaderIndex += 1;
+  if (gameBeforeSave.currentLeaderIndex >= gameBeforeSave.playerIDs.length) { gameBeforeSave.currentLeaderIndex = 0; }
   const round = new Round();
-  [round.currentLeaderID] = gameBeforeSave.playerIDs;
+  round.currentLeaderID = gameBeforeSave.playerIDs[gameBeforeSave.currentLeaderIndex];
   for (let i = 0; i < gameBeforeSave.playerIDs.length; i += 1) {
     round.voteByPlayerIndex.push('TBD');
   }
@@ -29,7 +31,6 @@ const newMission = (gameBeforeSave) => {
       missionAfterSave = savedNewMission;
       gameBeforeSave.currentMissionIndex += 1;
       gameBeforeSave.currentRoundIndex = 0;
-      gameBeforeSave.currentLeaderIndex = 0;
       gameBeforeSave.missions.push(savedNewMission._id);
       gameBeforeSave.currentExpectedInGameAction = 'proposeTeam';
       return gameBeforeSave.save();
@@ -48,11 +49,14 @@ const newMission = (gameBeforeSave) => {
 
 // IMPORTANT: newRound() will modify and save the input `gameBeforeSave`!
 // (including setting its currentExpectedInGameAction as 'proposeTeam'!)
+// does not do input check; otherwise could check for things like "round index should go above 4"
 const newRound = (gameBeforeSave) => {
   let roundAfterSave;
   let missionAfterSave;
+  gameBeforeSave.currentLeaderIndex += 1;
+  if (gameBeforeSave.currentLeaderIndex >= gameBeforeSave.playerIDs.length) { gameBeforeSave.currentLeaderIndex = 0; }
   const round = new Round();
-  round.currentLeaderID = gameBeforeSave.playerIDs[gameBeforeSave.currentLeaderIndex + 1];
+  round.currentLeaderID = gameBeforeSave.playerIDs[gameBeforeSave.currentLeaderIndex];
   for (let i = 0; i < gameBeforeSave.playerIDs.length; i += 1) {
     round.voteByPlayerIndex.push('TBD');
   }
@@ -68,7 +72,6 @@ const newRound = (gameBeforeSave) => {
     .then((savedCurrentMission) => {
       missionAfterSave = savedCurrentMission;
       gameBeforeSave.currentRoundIndex += 1;
-      gameBeforeSave.currentLeaderIndex += 1;
       gameBeforeSave.currentExpectedInGameAction = 'proposeTeam';
       return gameBeforeSave.save();
     })
@@ -87,6 +90,7 @@ const newRound = (gameBeforeSave) => {
 // returns null if waitingFor did not change
 // otherwise, returns the number of players still waiting.
 // waitingFor will be "refilled" when no more players are waiting
+// (exported for use in postgame_controller.js)
 export const updateWaitingFor = (playerID, foundGame) => {
   // check if the waitingFor would change
   const numPreviouslyWaiting = foundGame.waitingFor.length;
@@ -179,6 +183,7 @@ export const factionViewed = (socketID) => {
       if (numCurrentlyWaiting === null) {
         throw new Error('You must have bypassed the front-end to try announcing that you viewed faction after already annoucing once... Nice try.');
       }
+      foundGame.missions = [];
       return foundGame.save();
     })
     .then((savedGame) => {
@@ -203,6 +208,36 @@ export const factionViewed = (socketID) => {
           })
           .catch((error) => { throw error; });
       }
+    })
+    .catch((error) => { throw error; });
+};
+
+// VERY similar to proposeTeam()... all the sanity-checking.
+export const cardClicked = (fields, socketID) => {
+  let announcingPlayer;
+  return Player.findOne({ socketID })
+    .then((foundPlayer) => {
+      if (foundPlayer === null) {
+        throw new Error('You must have bypassed the front-end to try announcing that you clicked on a card without being a player... Nice try.');
+      }
+      announcingPlayer = foundPlayer;
+      return Game.findOne({ sessionID: foundPlayer.sessionID });
+    })
+    .then((foundGame) => {
+      if (foundGame === null
+        || foundGame.currentExpectedInGameAction !== 'proposeTeam' // note the cleverness here... may be a little dangerous
+        || foundGame.playerIDs[foundGame.currentLeaderIndex] !== announcingPlayer.playerID) {
+        throw new Error('You must have bypassed the front-end to try announcing that you clicked on a card without being asked to... Nice try.');
+      }
+
+      if (!foundGame.playerIDs.includes(fields.cardPlayerID)) {
+        throw new Error('You must have bypassed the front-end to try announcing that you clicked on the card of some made-up players... Nice try.');
+      }
+
+      return {
+        action: 'cardClicked',
+        cardPlayerID: fields.cardPlayerID,
+      };
     })
     .catch((error) => { throw error; });
 };

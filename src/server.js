@@ -130,6 +130,7 @@ io.on('connection', (socket) => {
           io.to(result.sessionID).emit('inGame', {
             action: result.action,
             playerIDs: result.playerIDs,
+            missionSizes: result.missionSizes,
           });
 
           for (let i = 0; i < result.spySocketIDs.length; i += 1) {
@@ -166,6 +167,17 @@ io.on('connection', (socket) => {
               missionSize: result.missionSize,
             });
           }
+        }).catch((error) => {
+          console.log(error);
+          io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
+        });
+        break;
+      case 'cardClicked':
+        Ingame.cardClicked(fields, socket.id).then((result) => {
+          io.to(result.sessionID).emit('inGame', {
+            action: result.action,
+            cardPlayerID: result.cardPlayerID,
+          });
         }).catch((error) => {
           console.log(error);
           io.to(socket.id).emit('inGame', { action: 'fail', failMessage: error.message });
@@ -290,7 +302,7 @@ io.on('connection', (socket) => {
   socket.on('postGame', (fields) => {
     Postgame.finishViewingGameHistory(socket.id).then((result) => {
       io.to(result.sessionID).emit('postGame', {
-        action: 'waitingFor',
+        action: result.action,
         waitingFor: result.waitingFor,
       });
     }).catch((error) => {

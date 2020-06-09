@@ -160,6 +160,7 @@ Server broadcasts to the room `sessionID` on the event `inGame`:
 {
     action: 'gameStarted',
     playerIDs: [String],
+    missionSizes: [Integer] // a 5-integer array of mission sizes
 }
 ```
 
@@ -432,11 +433,12 @@ if the client is an existing player, broadcast to the corresponding `sessionID` 
 ## TODOs
 * refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
 * refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
-* handle unexpected disconnections (replace player with AI, remove player from lobby upon disconnection, etc.)
+* handle unexpected disconnections while inGame and postGame (it is already handled while inLobby...)
 * make it so that the player joins the game with a random name, and is allowed to change it in the lobby at will, until the game starts
 * rename the `creator` status to be `lobby master` status
 * allow reconnecting to an ongoing game after disconnecting
 * allow spectating games
 * implement a `cardHoveredOver` action to complement `cardClicked` action
 * merge 'everyoneViewedFaction' with 'teamSelectionStarting' (alternatively, distinguish between the three similar use cases by what fields are meaningful to each)
+* instead of clearing all game states upon trying to start another game under the same sessionID, make it so that each sessionID can correspond to multiple games (a gameID system would be needed...)
 
