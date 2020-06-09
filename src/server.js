@@ -207,6 +207,18 @@ io.on('connection', (socket) => {
               roundOutcome: result.roundOutcome,
               concludedRound: result.concludedRound,
             });
+            if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
+              io.to(result.sessionID).emit('inGame', {
+                action: 'gameFinished',
+                victoriousFaction: result.victoriousFaction,
+              });
+              io.to(result.sessionID).emit('postGame', {
+                action: 'gameHistory',
+                victoriousFaction: result.victoriousFaction,
+                spies: result.spies,
+                gameHistory: result.gameHistory,
+              });
+            }
           }
         }).catch((error) => {
           console.log(error);
@@ -232,18 +244,6 @@ io.on('connection', (socket) => {
               currentRound: result.currentRound,
               missionSize: result.missionSize,
             });
-          } else if (result.action === 'gameFinished') {
-            // note that here the condition is necessary because the action could have been 'waitingFor'
-            io.to(result.sessionID).emit('inGame', {
-              action: result.action,
-              victoriousFaction: result.victoriousFaction,
-            });
-            io.to(result.sessionID).emit('postGame', {
-              action: 'gameHistory',
-              victoriousFaction: result.victoriousFaction,
-              spies: result.spies,
-              gameHistory: result.gameHistory,
-            });
           }
         }).catch((error) => {
           console.log(error);
@@ -264,9 +264,6 @@ io.on('connection', (socket) => {
               concludedMission: result.concludedMission,
             });
             if (Object.prototype.hasOwnProperty.call(result, 'victoriousFaction')) {
-              // note that unlike when we handle 'votesViewed', here we need to send 'missionVotes' action, so we can't
-              // set a condition on the action, but rather, we check for if 'victoriousFaction' is here (we COULD just
-              // check if it is null and send a null when we don't want to do the following...)
               io.to(result.sessionID).emit('inGame', {
                 action: 'gameFinished',
                 victoriousFaction: result.victoriousFaction,

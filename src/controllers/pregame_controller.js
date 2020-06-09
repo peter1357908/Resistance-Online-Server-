@@ -27,17 +27,20 @@ const discordRequest = (message) => {
   ).catch((error) => { console.log(error); });
 };
 
+// --------------------------------------------------------------------------
+// Message Handling Functions (function name should be the same as the action it handles)
 export const createGame = (fields, socketID) => {
+  let gameAfterSave;
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
-      reject(new Error('all fields must be filled out'));
+      reject(new Error('You must have bypassed the front-end to send a create request with an empty field... Nice try.'));
     });
   }
   return Game.findOne({ sessionID: fields.sessionID })
     .then((foundGame) => {
-      // if a game with the same sessionID already exists, fail the creation request
+      // if a game with the same sessionID already exists, reject the creation request
       if (foundGame != null) {
-        throw new Error('the sessionID already exists');
+        throw new Error('The sessionID already exists');
       }
       discordRequest(fields.sessionID);
       const game = new Game();
@@ -49,6 +52,7 @@ export const createGame = (fields, socketID) => {
       return game.save();
     })
     .then((savedGame) => {
+      gameAfterSave = savedGame;
       const player = new Player();
       player.playerID = fields.playerID;
       player.sessionID = fields.sessionID;
@@ -58,10 +62,10 @@ export const createGame = (fields, socketID) => {
     .then((savedPlayer) => {
       // assuming that the saved values are the same as the input fields
       return {
-        sessionID: fields.sessionID,
-        playerID: fields.playerID,
-        creatorID: fields.playerID,
-        playerIDs: [fields.playerID],
+        sessionID: gameAfterSave.sessionID,
+        playerID: savedPlayer.playerID,
+        creatorID: gameAfterSave.creatorID,
+        playerIDs: gameAfterSave.playerIDs,
       };
     })
     .catch((error) => { throw error; });
@@ -70,7 +74,7 @@ export const createGame = (fields, socketID) => {
 export const joinGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
-      reject(new Error('all fields must be filled out'));
+      reject(new Error('You must have bypassed the front-end to send a join request with an empty field... Nice try.'));
     });
   }
 
@@ -79,15 +83,15 @@ export const joinGame = (fields, socketID) => {
     .then((foundGame) => {
       let failMessage = null;
       if (foundGame === null) {
-        failMessage = 'sessionID is not found';
+        failMessage = 'The session is not found';
       } else if (foundGame.password !== fields.password) {
-        failMessage = 'password is incorrect';
+        failMessage = 'The password is incorrect';
       } else if (!foundGame.inLobby) {
-        failMessage = 'the session is not currently accepting new players (the game may have already started)';
+        failMessage = 'The session is not currently accepting new players (the game may have already started)';
       } else if (foundGame.playerIDs.length >= 10) {
-        failMessage = 'the session is already full';
+        failMessage = 'The session is already full';
       } else if (foundGame.playerIDs.includes(fields.playerID)) {
-        failMessage = 'playerID already taken in the target session';
+        failMessage = 'The playerID is already taken in the target session';
       }
       if (failMessage !== null) {
         throw new Error(failMessage);
@@ -135,7 +139,7 @@ export const startGame = (socketID) => {
         failMessage = 'You must have bypassed the front-end to try starting a game outside lobby... Nice try.';
       } else if (numPlayers < 5 || numPlayers > 10) {
         // TODO: no magic numbers
-        failMessage = 'Not enough people are in the lobby to start the game'; // assuming that they didn't hack to somehow produce more than 10 players
+        failMessage = 'You must have bypassed the front-end to try starting a game without having enough players... Nice try.'; // assuming that they didn't hack the backend to somehow produce a room with more than 10 players
       }
       if (failMessage !== null) {
         throw new Error(failMessage);

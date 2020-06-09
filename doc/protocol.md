@@ -270,6 +270,10 @@ Once the last vote is received, the server broadcasts to the room `sessionID` on
 }
 ```
 
+Upon receiving the last vote, if `concludedRound` would be `5` and `roundOutcome` would be `REJECTED`: 
+
+The game ends with the spies winning; handle it the same way as described below at "**If the game has ended**".
+
 ## CLIENT CLICKS 'OK' AFTER VIEWING VOTES
 After the user clicks 'ok', client sends to the server on the event 'inGame'
 ```
@@ -296,7 +300,7 @@ If the team proposal was approved:
 }
 ```
 
-Else if (the team proposal was rejected, but it was not the 5th proposal for the same mission that was rejected):
+Else (the team proposal was rejected, but it was not the 5th proposal for the same mission that was rejected, because otherwise the game has ended at the voteOnTeamProposal stage above):
 ```
 {
     action: 'teamSelectionStarting',
@@ -306,10 +310,6 @@ Else if (the team proposal was rejected, but it was not the 5th proposal for the
     missionSize: Integer, // how many players are needed on the current mission (redundant information, because the mission should stay the same)
 }
 ```
-
-Else (it was the 5th proposal for the same mission that was rejected):
-
-The game ends with the spies winning; handle it the same way as described below ("**If the game has ended**").
 
 ## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:
