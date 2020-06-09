@@ -422,7 +422,7 @@ client sends to the server on the event `chat`:
 }
 ```
 
-if the message is longer than 
+if the message is longer than 255 characters, a fail message is sent back to the sender instead of broadcasting the message to everyone.
 
 if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat`:
 ```

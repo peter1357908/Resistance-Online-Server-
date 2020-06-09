@@ -36,6 +36,12 @@ export const createGame = (fields, socketID) => {
       reject(new Error('You must have bypassed the front-end to send a create request with an empty field... Nice try.'));
     });
   }
+  if (fields.sessionID.length > 15 || fields.password.length > 15 || fields.playerID.length > 15) {
+    return new Promise((resolve, reject) => {
+      reject(new Error('SessionID, password, and playerID should all be no more than 15 characters.'));
+    });
+  }
+
   return Game.findOne({ sessionID: fields.sessionID })
     .then((foundGame) => {
       // if a game with the same sessionID already exists, reject the creation request
@@ -75,6 +81,12 @@ export const joinGame = (fields, socketID) => {
   if (fields.sessionID === '' || fields.password === '' || fields.playerID === '') {
     return new Promise((resolve, reject) => {
       reject(new Error('You must have bypassed the front-end to send a join request with an empty field... Nice try.'));
+    });
+  }
+
+  if (fields.sessionID.length > 15 || fields.password.length > 15 || fields.playerID.length > 15) {
+    return new Promise((resolve, reject) => {
+      reject(new Error('SessionID, password, and playerID should all be no more than 15 characters.'));
     });
   }
 
