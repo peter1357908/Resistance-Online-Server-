@@ -10,7 +10,7 @@ Client sends to the server on the event `createGame`:
 
 If any of the following conditions is met, the `createGame` request should be rejected:
 
-* Any of the input fields in the above message is empty
+* Any of the input fields in the above message is empty or more than 15 characters
 * `sessionID` already exists
 
 If the `createGame` request should be rejected, the server sends back to `socket.id` on the event `createGame`:
@@ -51,7 +51,7 @@ Client sends to the server on the event `joinGame`:
 
 If any of the following conditions is met, the `joinGame` request should be rejected:
 
-* Any of the input fields in the above message is empty
+* Any of the input fields in the above message is empty or more than 15 characters
 * `sessionID` is not found
 * `password` is incorrect
 * session specified by `sessionID` is no longer accepting new players (it may be because the session is no longer "in lobby", the session lobby is full, etc.)
@@ -75,10 +75,10 @@ Server sends to the client on the event `joinGame`:
 }
 ```
 
-Server sends to the client on the event `chat` (notice that the following it basically an array of tuples):
+Server sends to the client on the event `chat` (notice that the following is an array of arrays):
 ```
 [
-    { playerID: String, message: String }
+    [String] // a 2-element array in the format [messageFrom, message]
 ]
 ```
 
@@ -311,12 +311,12 @@ Else (the team proposal was rejected, but it was not the 5th proposal for the sa
 }
 ```
 
-## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCESS OR FAIL FOR THE MISSION
+## CLIENT WHO IS ON THE MISSION VOTES FOR SUCCEED OR FAIL FOR THE MISSION
 client sends to the server on the event `inGame` after user finalizes on the vote for mission's outcome:
 ```
 {
     action: 'voteOnMissionOutcome',
-    voteType: String, // 'SUCCESS' or 'FAIL'
+    voteType: String, // 'SUCCEED' or 'FAIL'
 }
 ```
 
@@ -379,7 +379,7 @@ The server emits to `sessionID` on event `postGame`:
 ```
 {
     missionOutcome: String, // 'SUCCEEDED' or 'FAILED' (redundant information; the outcome can be determined from `missionVoteComposition` below)
-    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCESS' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
+    missionVoteComposition: { playerID: voteType }, // an object whose keys are playerIDs and each value is the corresponding player's voteType ('SUCCEED' / 'FAIL'); note that this also implies which players went on the mission, as only those who did would appear as keys in this object.
     rounds: [`roundObject`], // `roundObject` is defined below; in the order of the rounds that took place
 }
 ```
@@ -417,21 +417,19 @@ Both the server and the client should assume that the session is proceeding to t
 ## CLIENT SENDS CHAT MESSAGE
 client sends to the server on the event `chat`:
 ```
-{
-    message: String
-}
+String // just the message string
 ```
 
-if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat`:
+if the message is longer than 255 characters, a fail message is sent back to the sender instead of broadcasting the message to everyone.
+
+if the client is an existing player, broadcast to the corresponding `sessionID` on event `chat` the following array:
 ```
-{
-    messageFrom: String // playerID
-    message: String
-}
+[
+    String // there should be two strings; the first string is the playerID who sent the message; the second string is the message itself
+]
 ```
 
 ## TODOs
-* refactor the code so that the chat component persists throughout the three phases of a session (lobby, in-game, post-game).
 * refactor the `youAreSpy` procedure to be less ambiguous (e.g. by sending also `youAreResistance`)
 * handle unexpected disconnections while inGame and postGame (it is already handled while inLobby...)
 * make it so that the player joins the game with a random name, and is allowed to change it in the lobby at will, until the game starts
