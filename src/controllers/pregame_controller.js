@@ -1,5 +1,6 @@
 import Game from '../models/game_model';
 import Player from '../models/player_model';
+import MissionSizes from '../resources/mission_sizes';
 
 // --------------------------------------------------------------------------
 // Helper Functions
@@ -30,7 +31,6 @@ export const createGame = (fields, socketID) => {
       game.password = fields.password;
       game.creatorID = fields.playerID;
       game.playerIDs = [fields.playerID];
-      game.currentMissionIndex = -1;
       game.inLobby = true;
       return game.save();
     })
@@ -128,15 +128,16 @@ export const startGame = (socketID) => {
       }
 
       // TODO: no magic formulas
+      const spiesArray = [];
       const numSpies = Math.ceil(numPlayers / 3.0);
       // first shuffle ensures that the spies are not always the first players that joined
       shuffle(foundGame.playerIDs);
       for (let i = 0; i < numSpies; i += 1) {
         const spyPlayerID = foundGame.playerIDs[i];
+        spiesArray.push(spyPlayerID);
         Player.findOne({ playerID: spyPlayerID, sessionID: foundGame.sessionID })
           .then((foundSpyPlayer) => { spySocketIDs.push(foundSpyPlayer.socketID); })
           .catch((error) => { throw error; });
-        foundGame.spies.push(spyPlayerID);
       }
       // second shuffle ensures that the spies are not always the first players after the first shuffle...
       shuffle(foundGame.playerIDs);
@@ -144,9 +145,12 @@ export const startGame = (socketID) => {
       // otherwise we can also do a slice(0) like what we do below for waitingFor
       foundGame.markModified('playerIDs');
 
-      foundGame.inLobby = false;
 
       // prepare for the next expected action
+      foundGame.inLobby = false;
+      foundGame.spies = spiesArray;
+      foundGame.currentMissionIndex = -1;
+      foundGame.currentLeaderIndex = -1;
       foundGame.waitingFor = foundGame.playerIDs.slice(0);
       foundGame.currentExpectedInGameAction = 'factionViewed';
 
@@ -154,10 +158,13 @@ export const startGame = (socketID) => {
     })
     .then(async (savedGame) => {
       return {
-        action: 'gameStarted',
         sessionID: savedGame.sessionID,
-        spies: savedGame.spies,
+
+        action: 'gameStarted',
         playerIDs: savedGame.playerIDs,
+        missionSizes: MissionSizes[savedGame.playerIDs.length],
+
+        spies: savedGame.spies,
         spySocketIDs: await Promise.all(spySocketIDs),
       };
     })
